@@ -16,7 +16,7 @@ This document provides guidance for AI assistants working on the TeleGit codebas
 ```
 telegit/
 ├── .git/                 # Git repository
-├── .nvm                  # Node.js version (24)
+├── .nvm                  # Node.js version (22)
 ├── package.json          # Project configuration and dependencies
 ├── README.md             # Comprehensive project documentation
 └── CLAUDE.md             # This file - AI assistant guide

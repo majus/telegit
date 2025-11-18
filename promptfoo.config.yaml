@@ -1,0 +1,87 @@
+# Promptfoo Configuration
+# LLM evaluation and testing framework
+# https://www.promptfoo.dev/docs/configuration/guide/
+
+description: 'TeleGit LLM Classification Tests'
+
+# Define the prompts to test
+prompts:
+  - file://test/prompts/classifier.txt
+
+# Define the providers (LLM models)
+providers:
+  - id: openai:gpt-4
+    config:
+      temperature: 0.7
+      max_tokens: 500
+  - id: openai:gpt-3.5-turbo
+    config:
+      temperature: 0.7
+      max_tokens: 500
+
+# Test cases for message classification
+tests:
+  # Bug reports
+  - vars:
+      messageText: 'The login button is not working on mobile devices'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'bug'
+      - type: javascript
+        value: output.confidence > 0.7
+
+  # Feature requests
+  - vars:
+      messageText: 'We should add dark mode to the application'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'idea'
+      - type: javascript
+        value: output.confidence > 0.6
+
+  # Issues
+  - vars:
+      messageText: 'Users are complaining about slow page load times'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'issue'
+      - type: javascript
+        value: output.confidence > 0.6
+
+  # Questions
+  - vars:
+      messageText: 'How does the authentication system work?'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'question'
+      - type: javascript
+        value: output.confidence > 0.6
+
+  # Ignore cases
+  - vars:
+      messageText: 'Hey team, anyone up for lunch?'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'ignore'
+      - type: javascript
+        value: output.confidence > 0.6
+
+  - vars:
+      messageText: 'Good morning everyone!'
+    assert:
+      - type: contains-json
+      - type: javascript
+        value: output.classification === 'ignore'
+
+# Output configuration
+outputPath: ./test/promptfoo-results.json
+
+# Default test configuration
+defaultTest:
+  options:
+    provider: openai:gpt-4
