@@ -103,6 +103,35 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Run basic Promptfoo evaluation successfully
 - **Status**: ☐
 
+### 1.2 Test Infrastructure
+
+#### Task 1.2.1: Create Mock Data Generators
+- **Description**: Create faker-based mock data generators for testing
+- **Complexity**: Low
+- **Dependencies**: Task 1.1.2
+- **Affected Files**: `test/helpers/factories.js`
+- **Factories**:
+  - Mock Telegram messages
+  - Mock Telegram users
+  - Mock Telegram groups
+  - Mock GitHub issues
+  - Mock LLM responses
+- **Testing**: Factories generate valid mock data
+- **Status**: ☐
+
+#### Task 1.2.2: Create Test Bot Helper
+- **Description**: Create helper for test bot instances
+- **Complexity**: Medium
+- **Dependencies**: Task 1.1.2
+- **Affected Files**: `test/helpers/bot.js`
+- **Features**:
+  - Create isolated test bot
+  - Mock Telegram API
+  - Mock database
+  - Mock LLM
+- **Testing**: Test helper creates functional mock bot
+- **Status**: ☐
+
 ---
 
 ## Phase 2: Database & Data Layer
@@ -195,6 +224,22 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Context caching and retrieval work, TTL expiration functional
 - **Status**: ☐
 
+#### Task 2.2.6: Unit Tests - Database Repositories
+- **Description**: Test all database repositories
+- **Complexity**: Medium
+- **Dependencies**: Task 2.2.2, Task 2.2.3, Task 2.2.4, Task 2.2.5
+- **Affected Files**: `test/unit/database/repositories.test.js`
+- **Test Cases**:
+  - ConfigRepository CRUD operations
+  - ConfigRepository encryption/decryption
+  - OperationsRepository CRUD operations
+  - FeedbackRepository CRUD operations
+  - FeedbackRepository scheduled deletion queries
+  - ConversationContextRepository caching
+  - ConversationContextRepository TTL expiration
+- **Testing**: All repository tests pass
+- **Status**: ☐
+
 ---
 
 ## Phase 3: Telegram Bot Service
@@ -225,6 +270,21 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Validate message is from allowed group (whitelist)
   - Validate message is from allowed user (whitelist)
 - **Testing**: Correctly identifies triggered vs non-triggered messages
+- **Status**: ☐
+
+#### Task 3.1.2a: Unit Tests - Message Filtering
+- **Description**: Test message trigger detection
+- **Complexity**: Low
+- **Dependencies**: Task 3.1.2
+- **Affected Files**: `test/unit/telegram/filters.test.js`
+- **Test Cases**:
+  - @mention detected correctly
+  - #hashtag detected correctly
+  - Non-triggered messages ignored
+  - Group whitelisting enforced
+  - User whitelisting enforced
+  - Combined triggers work
+- **Testing**: All filter tests pass
 - **Status**: ☐
 
 #### Task 3.1.3: Implement Message Handler
@@ -264,6 +324,20 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Look up operation by feedback message ID
   - Trigger undo logic for GitHub operations
 - **Testing**: Undo reverts GitHub actions, dismiss deletes feedback
+- **Status**: ☐
+
+#### Task 3.1.5a: Integration Tests - Reaction Controls
+- **Description**: Test user reaction-based controls
+- **Complexity**: Medium
+- **Dependencies**: Task 3.1.5
+- **Affected Files**: `test/integration/reaction-controls.test.js`
+- **Test Cases**:
+  - 👎 reaction triggers undo
+  - 👍 reaction dismisses feedback
+  - Undo reverts GitHub operation
+  - Dismiss deletes feedback message immediately
+  - Invalid reactions ignored
+- **Testing**: All reaction control tests pass
 - **Status**: ☐
 
 #### Task 3.1.6: Implement Feedback Message Lifecycle
@@ -323,6 +397,21 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Verify repository access permissions
   - Verify required scopes (repo, issues)
 - **Testing**: Valid PATs pass, invalid PATs rejected with helpful errors
+- **Status**: ☐
+
+#### Task 3.2.3a: Integration Tests - Auth Flow
+- **Description**: Test GitHub authentication setup flow
+- **Complexity**: High
+- **Dependencies**: Task 3.2.3
+- **Affected Files**: `test/integration/auth-flow.test.js`
+- **Test Cases**:
+  - Complete PAT setup flow
+  - PAT format validation
+  - PAT authentication validation
+  - Invalid PAT handling with helpful errors
+  - Retry logic for failures
+  - Encrypted PAT storage
+- **Testing**: All auth flow tests pass
 - **Status**: ☐
 
 ### 3.3 Conversation Threading
@@ -396,6 +485,23 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Correctly classifies various message types with Promptfoo
 - **Status**: ☐
 
+#### Task 4.2.1a: Unit Tests - Intent Classifier
+- **Description**: Test intent classification with various message types
+- **Complexity**: Medium
+- **Dependencies**: Task 4.2.1
+- **Affected Files**: `test/unit/ai/intent-classifier.test.js`
+- **Test Cases**:
+  - Bug reports identified correctly
+  - Tasks identified correctly
+  - Ideas identified correctly
+  - Updates identified correctly
+  - Unknown messages handled gracefully
+  - Confidence scores appropriate
+  - Entities extracted correctly
+  - Edge cases (empty, very long, special characters)
+- **Testing**: All intent classifier unit tests pass
+- **Status**: ☐
+
 #### Task 4.2.2: Create Intent Classification Prompts
 - **Description**: Write and optimize prompts for intent classification
 - **Complexity**: Medium
@@ -407,6 +513,22 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Entity extraction instructions
   - Confidence scoring guidance
 - **Testing**: Promptfoo evaluations show >80% accuracy
+- **Status**: ☐
+
+#### Task 4.2.2a: Promptfoo Evaluation - Intent Classification
+- **Description**: Evaluate intent classification accuracy with Promptfoo
+- **Complexity**: Medium
+- **Dependencies**: Task 4.2.2
+- **Affected Files**: `test/promptfoo/intent-classification.yaml`
+- **Test Cases**:
+  - Bug detection accuracy (target >80%)
+  - Task detection accuracy (target >80%)
+  - Idea detection accuracy (target >80%)
+  - Update detection accuracy (target >80%)
+  - Entity extraction accuracy
+  - Confidence calibration
+  - Edge cases and ambiguous messages
+- **Testing**: Promptfoo evaluation shows >80% overall accuracy
 - **Status**: ☐
 
 ### 4.3 LangGraph Workflow
@@ -497,6 +619,21 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Issue data formatted correctly, XSS-safe
 - **Status**: ☐
 
+#### Task 4.3.6a: Promptfoo Evaluation - Issue Formatting
+- **Description**: Evaluate issue formatting quality with Promptfoo
+- **Complexity**: Medium
+- **Dependencies**: Task 4.3.6
+- **Affected Files**: `test/promptfoo/issue-formatting.yaml`
+- **Test Cases**:
+  - Title quality and clarity
+  - Body structure and clarity
+  - Label appropriateness
+  - Markdown formatting correctness
+  - Metadata inclusion
+  - Image reference handling
+- **Testing**: Promptfoo evaluation shows high quality formatting
+- **Status**: ☐
+
 #### Task 4.3.7: Implement Execute Node
 - **Description**: Create node for executing GitHub operations via MCP
 - **Complexity**: Medium
@@ -566,6 +703,23 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Handle workflow errors
   - Return result
 - **Testing**: End-to-end message processing works
+- **Status**: ☐
+
+#### Task 4.4.1a: Integration Tests - Telegram to GitHub Flow
+- **Description**: Test end-to-end message processing flow
+- **Complexity**: High
+- **Dependencies**: Task 4.4.1
+- **Affected Files**: `test/integration/telegram-github-flow.test.js`
+- **Test Cases**:
+  - Bug report creates GitHub issue correctly
+  - Task creates GitHub issue correctly
+  - Feature idea creates GitHub issue correctly
+  - Update finds and updates existing issue
+  - Reactions update correctly through workflow
+  - Feedback posted and scheduled for deletion
+  - Thread context properly gathered and used
+  - Error handling and recovery
+- **Testing**: All end-to-end integration tests pass
 - **Status**: ☐
 
 ---
@@ -746,6 +900,20 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Encryption/decryption roundtrip works, tamper detection works
 - **Status**: ☐
 
+#### Task 7.1.1a: Unit Tests - Encryption
+- **Description**: Test token encryption/decryption
+- **Complexity**: Low
+- **Dependencies**: Task 7.1.1
+- **Affected Files**: `test/unit/utils/encryption.test.js`
+- **Test Cases**:
+  - Encryption/decryption roundtrip successful
+  - Tamper detection works
+  - Different IVs for same plaintext
+  - Invalid ciphertext rejected
+  - Missing encryption key handling
+- **Testing**: All encryption tests pass
+- **Status**: ☐
+
 ### 7.2 Access Control
 
 #### Task 7.2.1: Implement Group Whitelist
@@ -785,6 +953,22 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Sanitize markdown for GitHub
   - Prevent XSS in issue bodies
 - **Testing**: Malicious input sanitized, normal input preserved
+- **Status**: ☐
+
+#### Task 7.3.1a: Unit Tests - Sanitization
+- **Description**: Test input sanitization
+- **Complexity**: Low
+- **Dependencies**: Task 7.3.1
+- **Affected Files**: `test/unit/utils/sanitize.test.js`
+- **Test Cases**:
+  - XSS attempts blocked
+  - SQL injection attempts blocked
+  - Script tags removed/escaped
+  - Normal input preserved
+  - Markdown formatted correctly
+  - Length limits enforced
+  - Unicode handling
+- **Testing**: All sanitization tests pass
 - **Status**: ☐
 
 #### Task 7.3.2: Implement Schema Validation
@@ -912,172 +1096,11 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ---
 
-## Phase 9: Testing & Quality Assurance
+## Phase 9: Deployment & Infrastructure
 
-### 9.1 Unit Tests
+### 9.1 Docker
 
-#### Task 9.1.1: Unit Tests - Intent Classifier
-- **Description**: Test intent classification with various message types
-- **Complexity**: Medium
-- **Dependencies**: Task 4.2.1
-- **Affected Files**: `test/unit/ai/intent-classifier.test.js`
-- **Test Cases**:
-  - Bug reports identified correctly
-  - Tasks identified correctly
-  - Ideas identified correctly
-  - Updates identified correctly
-  - Unknown messages handled
-  - Confidence scores appropriate
-  - Entities extracted correctly
-- **Status**: ☐
-
-#### Task 9.1.2: Unit Tests - Message Filtering
-- **Description**: Test message trigger detection
-- **Complexity**: Low
-- **Dependencies**: Task 3.1.2
-- **Affected Files**: `test/unit/telegram/filters.test.js`
-- **Test Cases**:
-  - @mention detected
-  - #hashtag detected
-  - Non-triggered messages ignored
-  - Whitelisting enforced
-- **Status**: ☐
-
-#### Task 9.1.3: Unit Tests - Encryption
-- **Description**: Test token encryption/decryption
-- **Complexity**: Low
-- **Dependencies**: Task 7.1.1
-- **Affected Files**: `test/unit/utils/encryption.test.js`
-- **Test Cases**:
-  - Encryption/decryption roundtrip
-  - Tamper detection
-  - Different IVs for same plaintext
-- **Status**: ☐
-
-#### Task 9.1.4: Unit Tests - Repositories
-- **Description**: Test database repositories
-- **Complexity**: Medium
-- **Dependencies**: Task 2.2.2, Task 2.2.3, Task 2.2.4, Task 2.2.5
-- **Affected Files**: `test/unit/database/repositories.test.js`
-- **Test Cases**:
-  - ConfigRepository CRUD operations
-  - OperationsRepository CRUD operations
-  - FeedbackRepository CRUD operations
-  - ConversationContextRepository caching
-- **Status**: ☐
-
-#### Task 9.1.5: Unit Tests - Sanitization
-- **Description**: Test input sanitization
-- **Complexity**: Low
-- **Dependencies**: Task 7.3.1
-- **Affected Files**: `test/unit/utils/sanitize.test.js`
-- **Test Cases**:
-  - XSS attempts blocked
-  - SQL injection attempts blocked
-  - Normal input preserved
-  - Markdown formatted correctly
-- **Status**: ☐
-
-### 9.2 Integration Tests
-
-#### Task 9.2.1: Integration Tests - Telegram to GitHub Flow
-- **Description**: Test end-to-end message processing flow
-- **Complexity**: High
-- **Dependencies**: Task 4.4.1
-- **Affected Files**: `test/integration/telegram-github-flow.test.js`
-- **Test Cases**:
-  - Bug report creates GitHub issue
-  - Task creates GitHub issue
-  - Update finds and updates issue
-  - Reactions update correctly
-  - Feedback posted and scheduled for deletion
-- **Status**: ☐
-
-#### Task 9.2.2: Integration Tests - Auth Flow
-- **Description**: Test GitHub authentication setup flow
-- **Complexity**: High
-- **Dependencies**: Task 3.2.2
-- **Affected Files**: `test/integration/auth-flow.test.js`
-- **Test Cases**:
-  - Complete PAT setup flow
-  - PAT validation
-  - Invalid PAT handling
-  - Retry logic
-- **Status**: ☐
-
-#### Task 9.2.3: Integration Tests - Reaction Controls
-- **Description**: Test user reaction-based controls
-- **Complexity**: Medium
-- **Dependencies**: Task 3.1.5
-- **Affected Files**: `test/integration/reaction-controls.test.js`
-- **Test Cases**:
-  - 👎 reaction triggers undo
-  - 👍 reaction dismisses feedback
-  - Undo reverts GitHub operation
-- **Status**: ☐
-
-### 9.3 LLM Evaluation
-
-#### Task 9.3.1: Promptfoo - Intent Classification Tests
-- **Description**: Evaluate intent classification accuracy with Promptfoo
-- **Complexity**: Medium
-- **Dependencies**: Task 4.2.2
-- **Affected Files**: `test/promptfoo/intent-classification.yaml`
-- **Test Cases**:
-  - Bug detection accuracy
-  - Task detection accuracy
-  - Idea detection accuracy
-  - Update detection accuracy
-  - Entity extraction accuracy
-  - Target: >80% accuracy overall
-- **Status**: ☐
-
-#### Task 9.3.2: Promptfoo - Issue Formatting Tests
-- **Description**: Evaluate issue formatting quality with Promptfoo
-- **Complexity**: Medium
-- **Dependencies**: Task 4.3.6
-- **Affected Files**: `test/promptfoo/issue-formatting.yaml`
-- **Test Cases**:
-  - Title quality
-  - Body clarity
-  - Label appropriateness
-  - Markdown formatting
-- **Status**: ☐
-
-### 9.4 Test Helpers & Mocks
-
-#### Task 9.4.1: Create Mock Data Generators
-- **Description**: Create faker-based mock data generators
-- **Complexity**: Low
-- **Dependencies**: Task 1.1.2
-- **Affected Files**: `test/helpers/factories.js`
-- **Factories**:
-  - Mock Telegram messages
-  - Mock Telegram users
-  - Mock Telegram groups
-  - Mock GitHub issues
-  - Mock LLM responses
-- **Status**: ☐
-
-#### Task 9.4.2: Create Test Bot Helper
-- **Description**: Create helper for test bot instances
-- **Complexity**: Medium
-- **Dependencies**: Task 3.1.1
-- **Affected Files**: `test/helpers/bot.js`
-- **Features**:
-  - Create isolated test bot
-  - Mock Telegram API
-  - Mock database
-  - Mock LLM
-- **Status**: ☐
-
----
-
-## Phase 10: Deployment & Infrastructure
-
-### 10.1 Docker
-
-#### Task 10.1.1: Create Dockerfile
+#### Task 9.1.1: Create Dockerfile
 - **Description**: Create production Dockerfile
 - **Complexity**: Low
 - **Dependencies**: Task 1.1.2
@@ -1091,7 +1114,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Docker build succeeds, container runs
 - **Status**: ☐
 
-#### Task 10.1.2: Create Docker Compose
+#### Task 9.1.2: Create Docker Compose
 - **Description**: Create docker-compose for local development
 - **Complexity**: Low
 - **Dependencies**: Task 10.1.1
@@ -1102,7 +1125,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: `docker-compose up` works
 - **Status**: ☐
 
-#### Task 10.1.3: Create .dockerignore
+#### Task 9.1.3: Create .dockerignore
 - **Description**: Create .dockerignore for build optimization
 - **Complexity**: Low
 - **Dependencies**: Task 10.1.1
@@ -1115,9 +1138,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - .env files
 - **Status**: ☐
 
-### 10.2 Dokploy
+### 9.2 Dokploy
 
-#### Task 10.2.1: Create Dokploy Configuration
+#### Task 9.2.1: Create Dokploy Configuration
 - **Description**: Create Dokploy deployment configuration
 - **Complexity**: Low
 - **Dependencies**: Task 10.1.1
@@ -1132,9 +1155,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Domain and SSL
 - **Status**: ☐
 
-### 10.3 Kubernetes (Optional)
+### 9.3 Kubernetes (Optional)
 
-#### Task 10.3.1: Create Kubernetes Manifests
+#### Task 9.3.1: Create Kubernetes Manifests
 - **Description**: Create K8s deployment manifests
 - **Complexity**: Medium
 - **Dependencies**: Task 10.1.1
@@ -1151,9 +1174,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: `kubectl apply` succeeds, pods run
 - **Status**: ☐
 
-### 10.4 CI/CD
+### 9.4 CI/CD
 
-#### Task 10.4.1: Create GitHub Actions - Test Workflow
+#### Task 9.4.1: Create GitHub Actions - Test Workflow
 - **Description**: Create CI workflow for testing
 - **Complexity**: Medium
 - **Dependencies**: Task 1.1.5
@@ -1169,7 +1192,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Workflow runs successfully on push
 - **Status**: ☐
 
-#### Task 10.4.2: Create GitHub Actions - Build Workflow
+#### Task 9.4.2: Create GitHub Actions - Build Workflow
 - **Description**: Create workflow for Docker image builds
 - **Complexity**: Low
 - **Dependencies**: Task 10.1.1
@@ -1183,7 +1206,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Workflow builds and pushes image
 - **Status**: ☐
 
-#### Task 10.4.3: Create GitHub Actions - Deploy Workflow
+#### Task 9.4.3: Create GitHub Actions - Deploy Workflow
 - **Description**: Create workflow for automated deployment
 - **Complexity**: Medium
 - **Dependencies**: Task 10.4.2
@@ -1197,9 +1220,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Deployment workflow succeeds
 - **Status**: ☐
 
-### 10.5 Environment Setup
+### 9.5 Environment Setup
 
-#### Task 10.5.1: Document Production Environment Setup
+#### Task 9.5.1: Document Production Environment Setup
 - **Description**: Create documentation for production environment setup
 - **Complexity**: Low
 - **Dependencies**: None
@@ -1216,11 +1239,11 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ---
 
-## Phase 11: Documentation
+## Phase 10: Documentation
 
-### 11.1 API Documentation
+### 10.1 API Documentation
 
-#### Task 11.1.1: Document Internal APIs
+#### Task 10.1.1: Document Internal APIs
 - **Description**: Document internal API endpoints
 - **Complexity**: Low
 - **Dependencies**: Task 8.3.1, Task 5.2.3
@@ -1231,9 +1254,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - `/metrics` - Prometheus metrics
 - **Status**: ☐
 
-### 11.2 Architecture Documentation
+### 10.2 Architecture Documentation
 
-#### Task 11.2.1: Create Architecture Diagram
+#### Task 10.2.1: Create Architecture Diagram
 - **Description**: Create detailed architecture diagram
 - **Complexity**: Low
 - **Dependencies**: None
@@ -1245,9 +1268,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Deployment architecture
 - **Status**: ☐
 
-### 11.3 Operations Documentation
+### 10.3 Operations Documentation
 
-#### Task 11.3.1: Create Operations Runbook
+#### Task 10.3.1: Create Operations Runbook
 - **Description**: Create runbook for operations team
 - **Complexity**: Medium
 - **Dependencies**: Task 8.4.1
@@ -1260,9 +1283,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
   - Disaster recovery
 - **Status**: ☐
 
-### 11.4 User Documentation
+### 10.4 User Documentation
 
-#### Task 11.4.1: Update README with Usage Guide
+#### Task 10.4.1: Update README with Usage Guide
 - **Description**: Update README with comprehensive usage guide
 - **Complexity**: Low
 - **Dependencies**: None
@@ -1277,11 +1300,11 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ---
 
-## Phase 12: Extensibility (Post-MVP)
+## Phase 11: Extensibility (Post-MVP)
 
-### 12.1 Multi-Integration Support
+### 11.1 Multi-Integration Support
 
-#### Task 12.1.1: Create Base Execution Agent
+#### Task 11.1.1: Create Base Execution Agent
 - **Description**: Implement base execution agent class
 - **Complexity**: Medium
 - **Dependencies**: Task 4.4.1
@@ -1293,7 +1316,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Base class can be extended
 - **Status**: ☐
 
-#### Task 12.1.2: Refactor GitHub Agent
+#### Task 11.1.2: Refactor GitHub Agent
 - **Description**: Refactor GitHub integration as specialized execution agent
 - **Complexity**: High
 - **Dependencies**: Task 12.1.1, Task 5.2.1
@@ -1305,7 +1328,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: GitHub agent works as before
 - **Status**: ☐
 
-#### Task 12.1.3: Implement Intent Processing Agent
+#### Task 11.1.3: Implement Intent Processing Agent
 - **Description**: Create intent processing agent separate from execution
 - **Complexity**: High
 - **Dependencies**: Task 12.1.1, Task 4.2.1
@@ -1317,7 +1340,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Testing**: Intent agent hands off correctly
 - **Status**: ☐
 
-#### Task 12.1.4: Create Jira Execution Agent (Example)
+#### Task 11.1.4: Create Jira Execution Agent (Example)
 - **Description**: Create Jira integration as example of extensibility
 - **Complexity**: High
 - **Dependencies**: Task 12.1.1
@@ -1333,107 +1356,223 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ## Summary & Milestones
 
-### Milestone 1: Foundation (Phases 1-2)
-**Target**: Week 2
-- Project scaffolded
-- Dependencies installed
-- Database schema created
+### Milestone 1: Foundation (Phase 1)
+**Target**: Week 1
+- Project scaffolded with full directory structure
+- Dependencies installed and configured
+- Test infrastructure ready (mocks, helpers)
 - Development environment ready
 
-### Milestone 2: Core Services (Phases 3-4)
-**Target**: Week 4
-- Telegram bot operational
-- AI processing working
-- LangGraph workflow functional
-- Basic end-to-end flow complete
+### Milestone 2: Parallel Development Kickoff (After Phase 1)
+**Target**: Week 1-3 (PARALLEL WORK BEGINS)
+- **Critical Path**: Database schema + Telegram bot foundation
+- **Parallel Track 1**: LLM setup + Intent classification
+- **Parallel Track 2**: MCP client + GitHub tools setup
+- **Parallel Track 3**: Rate limiters implemented
+- **Parallel Track 4**: Core security (encryption, whitelists, sanitization)
+- **Parallel Track 5**: Logging and metrics infrastructure
 
-### Milestone 3: Integration (Phase 5)
-**Target**: Week 5
-- GitHub MCP integration working
-- Issues created from Telegram
+### Milestone 3: Core Integration (Phases 3-4-5 Complete)
+**Target**: Week 4-5 (CONVERGENCE)
+- Telegram bot fully operational with all handlers
+- Complete AI workflow with LangGraph
+- GitHub MCP integration working end-to-end
+- Issues created and updated from Telegram
 - Image attachments supported
 - Undo functionality implemented
+- Basic end-to-end flow complete with tests
 
-### Milestone 4: Production Ready (Phases 6-8)
-**Target**: Week 7
-- Rate limiting enforced
-- Security measures in place
+### Milestone 4: Production Ready (Phases 6-8 Complete)
+**Target**: Week 6-7
+- Message queue integrated with all components
+- Rate limiting enforced across all APIs
+- All security measures in place
 - Monitoring and logging operational
-- Health checks working
-
-### Milestone 5: Quality Assurance (Phase 9)
-**Target**: Week 8
-- Unit tests passing
-- Integration tests passing
-- LLM evaluation >80% accuracy
+- Health checks for all services
+- All tests passing (unit + integration + LLM eval)
 - Code coverage >70%
 
-### Milestone 6: Deployment (Phase 10-11)
-**Target**: Week 9
-- Docker images built
+### Milestone 5: Deployment (Phase 9-10)
+**Target**: Week 7-8
+- Docker images built and optimized
 - CI/CD pipeline operational
-- Deployed to staging
+- Deployed to staging environment
 - Documentation complete
+- Load testing performed
 
-### Milestone 7: MVP Release
-**Target**: Week 10
+### Milestone 6: MVP Release
+**Target**: Week 8 (With Parallelization) or Week 10 (Sequential)
 - Deployed to production
 - Monitoring active
+- Alerting configured
 - Initial user feedback collected
+- Bug fixes and iterations
 
-### Milestone 8: Extensibility (Phase 12)
-**Target**: Post-MVP
-- Multi-integration architecture
+### Milestone 7: Extensibility (Phase 11)
+**Target**: Post-MVP (Week 12+)
+- Multi-integration architecture refactored
 - Example integrations (Jira, etc.)
 - Plugin documentation
+- Community contributions enabled
 
 ---
 
-## Task Dependency Graph (Critical Path)
+## Task Dependency Graph (Parallel Opportunities)
+
+### Linear View (Oversimplified - See Parallel View Below)
+```
+Phase 1 → Phase 2 → Phase 3 → Complete Integration → Deployment
+```
+
+### Detailed Parallel View
 
 ```
-Phase 1 (Setup)
-  └─> Phase 2 (Database)
-      └─> Phase 3 (Telegram Bot)
-          └─> Phase 4 (AI Engine)
-              └─> Phase 5 (GitHub Integration)
-                  └─> Phase 6 (Rate Limiting)
-                      └─> Phase 7 (Security)
-                          └─> Phase 8 (Monitoring)
-                              └─> Phase 9 (Testing)
-                                  └─> Phase 10 (Deployment)
-                                      └─> Phase 11 (Documentation)
-                                          └─> Phase 12 (Extensibility)
+Phase 1: Project Setup & Test Infrastructure
+├─────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│                 │                  │                  │                  │                  │
+▼                 ▼                  ▼                  ▼                  ▼                  ▼
+Phase 2:          Phase 4.1-4.2:    Phase 5.1-5.2.1:  Phase 6:           Phase 7.1-7.3.1:  Phase 8.1-8.2:
+Database          LLM Setup &        MCP Client &      Rate Limiters     Security Core     Logging & Metrics
++ Tests           Intent Class.      GitHub Tools      (all 3)            (Encryption,      (Pino, Prometheus)
+                  + Tests            + Basic Tests                        Whitelist,
+                                                                          Sanitization)
+                                                                          + Tests
+│
+▼
+Phase 3: Telegram Bot + Tests
+├────────────────┬──────────────────┐
+│                │                  │
+▼                ▼                  ▼
+Phase 4.3-4.4:   Phase 5.2.2-5.2.4: Phase 7.3.2-7.4:
+Complete AI      Image Processing   Schema Valid.
+Workflow         & Undo Logic       & Webhook Sec.
++ Integration    + Tests            + Tests
+Tests
+│                │
+└────────┬───────┘
+         │
+         ▼
+Phase 6.2: Message Queue Integration
+Phase 8.3: Health Checks (needs all services)
+         │
+         ▼
+Phase 9: Deployment & Infrastructure
+         │
+         ▼
+Phase 10: Documentation (can start anytime, finalize here)
+         │
+         ▼
+Phase 11: Extensibility (Post-MVP)
 ```
+
+### Parallelization Strategy
+
+**🚀 Stage 1 - After Phase 1 (HIGHLY PARALLEL):**
+Can work on **6 phases simultaneously**:
+- **Phase 2**: Database (Critical Path)
+- **Phase 4.1-4.2**: LLM setup, Intent Classifier (Independent)
+- **Phase 5.1-5.2.1**: MCP Client, GitHub Tools (Independent)
+- **Phase 6**: All rate limiters (Independent)
+- **Phase 7.1-7.3.1**: Encryption, Whitelists, Sanitization (Independent)
+- **Phase 8.1-8.2**: Logging, Metrics (Independent)
+
+**⚡ Stage 2 - After Phase 2 (MODERATE PARALLEL):**
+Can work on **4 tracks simultaneously**:
+- **Phase 3**: Telegram Bot (Critical Path)
+- Continue **Phase 4.1-4.2** if not complete
+- Continue **Phase 5** if not complete
+- Continue **Phase 7-8** if not complete
+
+**🔗 Stage 3 - After Phase 3 (CONVERGENCE):**
+Can work on **3 tracks simultaneously**:
+- **Phase 4.3-4.4**: Complete AI Workflow with LangGraph
+- **Phase 5.2.2-5.2.4**: Image Processing, Telegram Asset Proxy, Undo
+- **Phase 7.3.2-7.4**: Schema Validation, Webhook Security
+
+**🎯 Stage 4 - Integration (SEQUENTIAL):**
+- **Phase 6.2**: Message Queue Integration (needs all components)
+- **Phase 8.3**: Health Checks (needs all services)
+
+**📦 Stage 5 - Finalization (PARALLEL):**
+Can work on **2 tracks simultaneously**:
+- **Phase 9**: Deployment & Infrastructure
+- **Phase 10**: Documentation (can overlap with all phases)
+
+**🔮 Stage 6 - Post-MVP:**
+- **Phase 11**: Extensibility
+
+### Time Savings with Parallelization
+
+**Without Parallel Work**: ~10-12 weeks (sequential)
+**With Parallel Work**: ~6-8 weeks (with proper team distribution)
+
+**Key Insight**: Phases 4-8 contain many independent components that only depend on Phase 1 (project setup). This allows for massive parallelization in early stages.
+
+### Recommended Team Distribution (for parallel work)
+
+**Solo Developer**: Follow critical path (Phase 1→2→3→4→5→6→7→8→9→10), implement supporting phases as needed.
+
+**2 Developers**:
+- Dev 1: Critical Path (Phases 1→2→3)
+- Dev 2: After Phase 1, work on Phases 6, 7, 8 (Infrastructure & Security)
+- Both: Converge on Phases 4-5 integration
+
+**3-4 Developers**:
+- Dev 1: Phases 1→2→3 (Database & Telegram Bot)
+- Dev 2: Phases 4.1-4.2→4.3-4.4 (AI Engine)
+- Dev 3: Phases 5.1-5.2→complete (GitHub Integration)
+- Dev 4: Phases 6, 7, 8 (Rate Limiting, Security, Monitoring)
+
+**5+ Developers**:
+- Dev 1: Phases 1→2 (Setup & Database)
+- Dev 2: Phase 3 (Telegram Bot)
+- Dev 3: Phase 4 (AI Engine complete)
+- Dev 4: Phase 5 (GitHub Integration complete)
+- Dev 5: Phases 6, 7, 8 (Infrastructure, Security, Monitoring)
+- Dev 6+: Phase 10 (Documentation), Phase 9 (DevOps), Testing support
+
+**Note**: Tests are integrated within each phase, written alongside the code they test.
 
 ---
 
 ## Progress Tracking
 
-**Total Tasks**: 110+
+**Total Tasks**: 120+ (including integrated tests)
 **Completed**: 0
 **In Progress**: 0
-**Not Started**: 110+
+**Not Started**: 120+
 
-**Estimated Timeline**: 10-12 weeks to MVP
+**Estimated Timeline**:
+- **Sequential Development**: 10-12 weeks to MVP
+- **Parallel Development (3-4 devs)**: 6-8 weeks to MVP
+- **Aggressive Parallel (5+ devs)**: 5-7 weeks to MVP
+
+**Critical Path**: Phase 1 → Phase 2 → Phase 3 → Integration → Deployment (~5-6 weeks minimum)
+
+**Parallelizable Work**: ~40-50% of tasks can be done in parallel after Phase 1
+
+**Note**: Task count increased as tests are now individual tasks alongside implementation.
 
 ---
 
 ## Notes
 
 - Tasks are designed to be individually implementable
-- Each task includes testing requirements
+- **Tests are integrated alongside implementation** - write tests immediately after (or during) feature development
+- Each implementation task is followed by its corresponding test task(s)
 - Dependencies must be completed before dependent tasks
 - Complexity ratings help with effort estimation:
   - Low (L): 1-4 hours
   - Medium (M): 4-8 hours
   - High (H): 8-16 hours
 - Regular code reviews recommended after each phase
-- Integration tests should be run after each major milestone
-- LLM evaluation should be continuous throughout Phase 4
+- **Test-Driven Development (TDD) or test-alongside-development is the recommended approach**
+- Unit tests validate individual components in isolation
+- Integration tests validate end-to-end workflows
+- LLM evaluation with Promptfoo should be continuous during Phase 4 development
 
 ---
 
 **Last Updated**: 2025-11-18
-**Version**: 1.0
-**Status**: Initial task breakdown complete
+**Version**: 2.1
+**Status**: Restructured with tests integrated alongside implementation (TDD approach) + Detailed parallel dependency analysis
