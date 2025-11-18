@@ -29,7 +29,7 @@ telegit/
 ### Core Technologies
 - **Language**: JavaScript (ES modules - `"type": "module"` in package.json)
 - **TypeScript**: Only for type definitions, NOT for implementation
-- **Runtime**: Node.js >= 24.0.0 (specified in `.nvm`)
+- **Runtime**: Node.js >= 22.0.0 (specified in `.nvm`)
 - **Testing**: Vitest
 - **Deployment**: Docker with Dokploy
 
@@ -49,7 +49,7 @@ telegit/
 - **JavaScript Only**: Implementation files should be `.js` (ES modules)
 - **TypeScript**: Only for `.d.ts` type definition files
 - **Module System**: ES modules (`import/export`, not `require()`)
-- **Node Version**: Always ensure compatibility with Node.js 24+
+- **Node Version**: Always ensure compatibility with Node.js 22+
 
 ### Key Guidelines
 - Use GitHub MCP server for GitHub API integration (not generic HTTP clients)
@@ -87,7 +87,7 @@ telegit/
 
 ### Dependencies
 - Update `package.json` when adding dependencies
-- Verify compatibility with Node.js 24+
+- Verify compatibility with Node.js 22+
 - Prefer well-maintained libraries
 
 ### Common Pitfalls

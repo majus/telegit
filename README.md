@@ -10,7 +10,7 @@ The bot performs actions optimistically without requiring constant user confirma
 
 - JavaScript
 - TypeScript (only for type definitions)
-- Node.js >= 24.0.0
+- Node.js >= 22.0.0
 - Vitest
 - Docker
 - [Dokploy](https://docs.dokploy.com/docs/core)
