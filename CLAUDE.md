@@ -15,14 +15,36 @@ This document provides guidance for AI assistants working on the TeleGit codebas
 
 ```
 telegit/
-├── .git/                 # Git repository
-├── .nvm                  # Node.js version (22)
-├── package.json          # Project configuration and dependencies
-├── README.md             # Comprehensive project documentation
-└── CLAUDE.md             # This file - AI assistant guide
+├── .git/                     # Git repository
+├── .nvm                      # Node.js version (22)
+├── db/                       # Database files
+│   ├── schema.sql           # PostgreSQL schema definition
+│   ├── init.sql             # Database initialization script
+│   ├── migrate.js           # Migration runner
+│   └── migrations/          # Migration files
+│       └── 001_initial_schema.sql
+├── src/                      # Source code
+│   ├── database/            # Database layer
+│   │   ├── db.js           # PostgreSQL client setup
+│   │   └── repositories/   # Data access repositories
+│   │       ├── config.js   # Group configuration repository
+│   │       ├── operations.js # Operations tracking repository
+│   │       ├── feedback.js # Feedback messages repository
+│   │       └── context.js  # Conversation context repository
+│   └── utils/              # Utility functions
+│       └── encryption.js   # AES-256-GCM encryption utility
+├── test/                    # Test files
+│   └── unit/               # Unit tests
+│       ├── database/       # Database tests
+│       │   └── repositories.test.js
+│       └── utils/          # Utility tests
+│           └── encryption.test.js
+├── package.json            # Project configuration and dependencies
+├── README.md               # Comprehensive project documentation
+└── CLAUDE.md               # This file - AI assistant guide
 ```
 
-**Current State**: Early stage - only basic configuration files exist. Implementation has not started.
+**Current State**: Phase 2 (Database & Data Layer) complete. Database schema, repositories, encryption, and comprehensive tests implemented.
 
 ## Technical Stack
 
@@ -104,7 +126,65 @@ telegit/
 - [Vitest Documentation](https://vitest.dev/)
 - Project README.md for detailed feature specifications
 
+## Implementation Status
+
+### Phase 2: Database & Data Layer ✓ (Complete)
+
+The database layer has been fully implemented with PostgreSQL as the backend:
+
+**Database Schema**:
+- `group_configs`: Stores Telegram group configurations and encrypted GitHub credentials
+- `operations`: Tracks all bot operations (create, update, search issues)
+- `operation_feedback`: Manages feedback messages with auto-deletion scheduling
+- `conversation_context`: Caches conversation threads with TTL expiration
+
+**Data Access Layer**:
+- `ConfigRepository`: Manages group configurations with AES-256-GCM encryption for GitHub PATs
+- `OperationsRepository`: Tracks operation history and status
+- `FeedbackRepository`: Manages feedback message lifecycle and scheduled deletions
+- `ConversationContextRepository`: Handles conversation thread caching with TTL
+
+**Security**:
+- AES-256-GCM encryption for GitHub Personal Access Tokens
+- Secure key management via environment variables
+- Tamper detection through authentication tags
+
+**Migration System**:
+- Migration runner (`db/migrate.js`) for schema version control
+- Initial migration (`001_initial_schema.sql`) with full schema
+- Automatic migration tracking table
+
+**Testing**:
+- Comprehensive unit tests for all repositories (>80% coverage target)
+- Encryption utility tests with security validation
+- Test data generation using @faker-js/faker
+
+**Database Configuration**:
+- Connection pooling (max 20 connections as per PRD)
+- Slow query logging (>100ms threshold)
+- Automatic connection management and cleanup
+- Health check functionality
+
+**Environment Variables Required**:
+- `POSTGRES_HOST`: Database host (default: localhost)
+- `POSTGRES_PORT`: Database port (default: 5432)
+- `POSTGRES_DB`: Database name (default: telegit)
+- `POSTGRES_USER`: Database user
+- `POSTGRES_PASSWORD`: Database password
+- `ENCRYPTION_KEY`: 64 hex characters (32 bytes) for AES-256-GCM encryption
+
+**Running Migrations**:
+```bash
+node db/migrate.js up
+```
+
+**Running Tests**:
+```bash
+npm test
+```
+
 ## Version History
 
 - **2025-11-18**: Initial CLAUDE.md created
 - **2025-11-18**: Distilled to remove speculative content, focus on current state and generic guidelines
+- **2025-11-18**: Phase 2 (Database & Data Layer) completed - Added PostgreSQL schema, repositories, encryption, migrations, and comprehensive tests
