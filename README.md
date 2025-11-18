@@ -77,6 +77,95 @@ You may include hashtags to categorize your intent more explicitly, e.g., `#todo
 
 The bot may be limited by Telegram groups and/or accounts it will process messages from. This is called whitelisting and can be set up via environment variables.
 
+### Whitelisting Configuration
+
+Control which Telegram groups and users can interact with the bot using environment variables:
+
+**Group Whitelist:**
+```bash
+ALLOWED_GROUPS="-123456789,-987654321"
+```
+- Comma-separated list of Telegram group IDs (negative numbers)
+- If not set, all groups are allowed
+- Only messages from whitelisted groups will be processed
+
+**User Whitelist:**
+```bash
+ALLOWED_USERS="123456789,987654321"
+```
+- Comma-separated list of Telegram user IDs (positive numbers)
+- If not set, all users are allowed
+- Only messages from whitelisted users will be processed
+
+Both whitelists can be used simultaneously for fine-grained access control.
+
+## Security
+
+TeleGit implements comprehensive security measures to protect sensitive data and prevent attacks:
+
+### Token Encryption
+
+All GitHub Personal Access Tokens (PATs) are encrypted at rest using **AES-256-GCM encryption**:
+
+- **Algorithm**: AES-256-GCM (authenticated encryption)
+- **Key Management**: 256-bit encryption key stored in `ENCRYPTION_KEY` environment variable
+- **IV Generation**: Random 96-bit IV generated for each encryption operation
+- **Tamper Detection**: Authentication tags ensure data integrity
+
+**Generating an encryption key:**
+```bash
+# Generate a secure 64-character hex string (32 bytes)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Set the encryption key in your environment:
+```bash
+ENCRYPTION_KEY="your-64-character-hex-string-here"
+```
+
+### Input Sanitization
+
+All Telegram messages are sanitized before being processed to prevent injection attacks:
+
+- **XSS Prevention**: Script tags, event handlers, and dangerous HTML removed
+- **URL Validation**: Only `https://`, `http://`, and `mailto:` protocols allowed
+- **Length Limits**: Maximum lengths enforced for titles, bodies, and labels
+- **Markdown Preservation**: Safe markdown formatting preserved for GitHub issues
+- **Unicode Support**: Proper handling of international characters
+
+**Sanitization features:**
+- Remove `<script>` tags and JavaScript code
+- Strip dangerous HTML attributes (onclick, onerror, etc.)
+- Filter `javascript:`, `data:`, and `vbscript:` URLs
+- Remove iframe, object, embed, and style tags
+- Validate and truncate message lengths
+- Preserve legitimate markdown formatting
+
+### Webhook Security
+
+When using webhooks for Telegram integration, ensure proper security:
+
+- **Webhook Signature Verification**: Validate incoming webhook requests (implementation pending)
+- **HTTPS Only**: Always use HTTPS for webhook endpoints
+- **Secret Token**: Use Telegram's secret token feature for additional security
+
+### Environment Variable Security
+
+Protect sensitive environment variables:
+
+- Never commit `.env` files to version control
+- Use secure secret management in production (e.g., Docker secrets, vault services)
+- Rotate encryption keys and tokens periodically
+- Use different credentials for development and production
+
+### Best Practices
+
+1. **Least Privilege**: Grant GitHub PATs only required permissions (`repo` scope)
+2. **Access Control**: Use whitelists to restrict bot access to authorized groups/users
+3. **Regular Updates**: Keep dependencies updated to patch security vulnerabilities
+4. **Monitoring**: Monitor bot activity and review logs for suspicious patterns
+5. **Secure Deployment**: Use HTTPS, secure database connections, and encrypted storage
+
 ## GitHub Authentication
 
 **Per-User Authentication:** Each user authenticates with their own GitHub Personal Access Token (PAT).
