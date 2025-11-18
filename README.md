@@ -77,19 +77,19 @@ You may include hashtags to categorize your intent more explicitly, e.g., `#todo
 
 The bot may be limited by Telegram groups and/or accounts it will process messages from. This is called whitelisting and can be set up via environment variables.
 
-## GitHub Authentication 
+## GitHub Authentication
 
-**For MVP:** GitHub Personal Access Token (PAT) authentication.
+**Per-User Authentication:** Each user authenticates with their own GitHub Personal Access Token (PAT).
 
-Each Telegram group where the bot operates is linked to a single GitHub repository. Configuration includes:
-- GitHub PAT (with `repo` scope)
-- Repository name (e.g., `owner/repo-name`)
+When a user first triggers the bot in a Telegram group, they'll be prompted to:
+1. Provide their GitHub repository URL (e.g., `https://github.com/owner/repo-name`)
+2. Provide their GitHub PAT (with `repo` scope)
 
-Configuration is provided by the first user who sets up the bot in a group via private messaging with the bot (becoming the bot manager for that group).
-
-Bot managers can perform additional operations:
-- Update repository configuration
-- Unlink bot from GitHub repository for a channel
+The bot securely stores the encrypted PAT (using AES-256-GCM encryption) and associates it with the user and group. This approach ensures:
+- Users only create issues in repositories they have access to
+- No shared credentials across users
+- Proper attribution of GitHub actions to individual users
+- Enhanced security through encryption of stored credentials
 
 ## LLM Evaluation Framework
 

@@ -8,18 +8,13 @@ export interface EnvironmentConfig {
   TELEGRAM_CHAT_IDS: string; // Comma-separated list of allowed chat IDs
 
   // GitHub Configuration
-  GITHUB_TOKEN: string;
-  GITHUB_REPO_OWNER: string;
-  GITHUB_REPO_NAME: string;
   GITHUB_MCP_SERVER_URL?: string; // Optional, defaults to local MCP server
 
   // Database Configuration
   DATABASE_URL: string;
-  POSTGRES_USER?: string;
-  POSTGRES_PASSWORD?: string;
-  POSTGRES_DB?: string;
-  POSTGRES_HOST?: string;
-  POSTGRES_PORT?: string;
+
+  // Security Configuration
+  ENCRYPTION_KEY: string; // 64 hex characters (32 bytes) for AES-256-GCM encryption
 
   // LLM Configuration
   OPENAI_API_KEY: string;
@@ -39,18 +34,13 @@ export interface ParsedConfig {
     allowedChatIds: number[];
   };
   github: {
-    token: string;
-    repoOwner: string;
-    repoName: string;
     mcpServerUrl: string;
   };
   database: {
     url: string;
-    user?: string;
-    password?: string;
-    database?: string;
-    host?: string;
-    port?: number;
+  };
+  security: {
+    encryptionKey: string;
   };
   llm: {
     apiKey: string;

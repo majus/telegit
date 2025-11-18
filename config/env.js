@@ -16,18 +16,13 @@ const envSchema = z.object({
   TELEGRAM_CHAT_IDS: z.string().min(1, 'TELEGRAM_CHAT_IDS is required'),
 
   // GitHub Configuration
-  GITHUB_TOKEN: z.string().min(1, 'GITHUB_TOKEN is required'),
-  GITHUB_REPO_OWNER: z.string().min(1, 'GITHUB_REPO_OWNER is required'),
-  GITHUB_REPO_NAME: z.string().min(1, 'GITHUB_REPO_NAME is required'),
   GITHUB_MCP_SERVER_URL: z.string().url().optional().default('http://localhost:3000/mcp'),
 
   // Database Configuration
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
-  POSTGRES_USER: z.string().optional(),
-  POSTGRES_PASSWORD: z.string().optional(),
-  POSTGRES_DB: z.string().optional(),
-  POSTGRES_HOST: z.string().optional(),
-  POSTGRES_PORT: z.string().optional(),
+
+  // Security Configuration
+  ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
 
   // LLM Configuration
   OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
@@ -58,18 +53,13 @@ export function loadConfig() {
         allowedChatIds: env.TELEGRAM_CHAT_IDS.split(',').map(id => parseInt(id.trim(), 10)),
       },
       github: {
-        token: env.GITHUB_TOKEN,
-        repoOwner: env.GITHUB_REPO_OWNER,
-        repoName: env.GITHUB_REPO_NAME,
         mcpServerUrl: env.GITHUB_MCP_SERVER_URL,
       },
       database: {
         url: env.DATABASE_URL,
-        user: env.POSTGRES_USER,
-        password: env.POSTGRES_PASSWORD,
-        database: env.POSTGRES_DB,
-        host: env.POSTGRES_HOST,
-        port: env.POSTGRES_PORT ? parseInt(env.POSTGRES_PORT, 10) : undefined,
+      },
+      security: {
+        encryptionKey: env.ENCRYPTION_KEY,
       },
       llm: {
         apiKey: env.OPENAI_API_KEY,
