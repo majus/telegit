@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/ai/*": ["src/ai/*"],
+      "@/services/*": ["src/services/*"],
+      "@/integrations/*": ["src/integrations/*"],
+      "@/database/*": ["src/database/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/config/*": ["config/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "config/**/*",
+    "test/**/*",
+    "*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build"
+  ]
+}

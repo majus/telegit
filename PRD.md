@@ -24,7 +24,7 @@ TeleGit is an AI-powered Telegram bot that transforms conversational messages in
 - **Extensible architecture**: Modular design for future integration targets beyond GitHub
 
 ### Technical Stack Overview
-- **Runtime**: Node.js >= 24.0.0 with JavaScript (TypeScript for types only)
+- **Runtime**: Node.js >= 22.0.0 (LTS) with JavaScript (prefer `*.d.ts` files for type definitions over JSDoc)
 - **AI Orchestration**: LangChain.js + LangGraph
 - **Message Queue**: Bottleneck (in-memory rate limiting)
 - **Storage**: Supabase (PostgreSQL)
@@ -134,9 +134,10 @@ sequenceDiagram
     Bot->>User: Send DM with PAT setup instructions
     Note over Bot,User: Private chat for secure PAT exchange
 
-    User->>Bot: Send /configure command in DM
+    Bot->>User: Request GitHub repository URL
+    User->>Bot: Provides repository URL
     Bot->>User: Request GitHub PAT
-    User->>Bot: Provides PAT + repository
+    User->>Bot: Provides PAT
 
     Bot->>Bot: Validate PAT format
     Bot->>GitHub: Test PAT & check permissions
@@ -423,7 +424,6 @@ export class ConfigRepository {
 ```mermaid
 erDiagram
     group_configs ||--o{ operations : has
-    group_configs ||--o{ whitelist_entries : has
     operations ||--o{ operation_feedback : has
     
     group_configs {
@@ -456,13 +456,6 @@ erDiagram
         timestamp created_at
     }
     
-    whitelist_entries {
-        uuid id PK
-        bigint telegram_group_id FK
-        bigint telegram_user_id
-        string permission_level
-        timestamp created_at
-    }
     
     conversation_context {
         uuid id PK
@@ -528,13 +521,16 @@ const WorkflowState = {
 ```mermaid
 stateDiagram-v2
     [*] --> AddToGroup: Admin adds bot to group
-    AddToGroup --> SendWelcome: Bot sends welcome message
-    SendWelcome --> DMAdmin: Admin DMs bot
-    DMAdmin --> ConfigureRepo: Admin provides GitHub PAT & repo
+    AddToGroup --> WaitForStart: Bot waits for /start command
+    WaitForStart --> SendInstructions: Admin sends /start in group
+    SendInstructions --> DMAdmin: Admin DMs bot
+    DMAdmin --> RequestRepo: Bot requests GitHub repository URL
+    RequestRepo --> RequestPAT: Admin provides repository URL
+    RequestPAT --> ConfigureRepo: Admin provides GitHub PAT
     ConfigureRepo --> ValidateConfig: Bot validates credentials
     ValidateConfig --> StoreConfig: Validation successful
     ValidateConfig --> RequestCorrection: Validation failed
-    RequestCorrection --> ConfigureRepo
+    RequestCorrection --> RequestPAT
     StoreConfig --> Ready: Bot ready in group
     Ready --> [*]
 ```
@@ -563,7 +559,7 @@ flowchart TD
     Success -->|No| Error
     Success -->|Yes| Final[React: 👾/🫡/🦄]
     
-    Final --> Feedback[Post feedback message]
+    Final --> Feedback[Post feedback message as reply]
     Feedback --> Timer[Start 10-min timer]
     Timer --> Delete[Auto-delete feedback]
     
@@ -579,13 +575,13 @@ flowchart TD
 ```mermaid
 flowchart LR
     User[User] --> React{Reaction type?}
-    React -->|👎 on feedback| Undo[Undo last operation]
+    React -->|👎 on feedback| Undo[Undo operation associated with this feedback]
     React -->|👍 on feedback| Dismiss[Delete feedback immediately]
-    
-    Undo --> FindOp[Find operation record]
+
+    Undo --> FindOp[Find operation record by feedback message]
     FindOp --> Revert[Revert GitHub action]
     Revert --> Update[Update feedback message]
-    
+
     Dismiss --> Delete[Delete feedback message]
     Delete --> Clear[Clear deletion timer]
 ```
@@ -594,34 +590,14 @@ flowchart LR
 
 ### Telegram Webhook
 
-```javascript
-// POST /webhook/telegram
-{
-  update_id: Number,
-  message: {
-    message_id: Number,
-    from: { id: Number, username: String },
-    chat: { id: Number, type: String },
-    date: Number,
-    text: String,
-    entities: Array,
-    reply_to_message: Object
-  }
-}
-
-// Response
-{
-  status: 'processed' | 'ignored',
-  trigger: String // What triggered processing
-}
-```
+Webhook handling is managed internally by Telegraf library. The bot listens for updates and processes them according to configured handlers.
 
 ### Internal API Endpoints
 
 ```javascript
 // GET /api/health
-Response: { 
-  status: 'healthy', 
+Response: {
+  status: 'healthy',
   version: String,
   uptime: Number,
   services: {
@@ -631,25 +607,20 @@ Response: {
     llm: Boolean
   }
 }
+```
 
-// POST /api/admin/configure
-Request: {
-  groupId: String,
-  githubToken: String,
-  repository: String
-}
-Response: {
-  success: Boolean,
-  message: String
-}
+### Image Upload Proxy Endpoint
 
-// GET /api/stats/:groupId
-Response: {
-  totalOperations: Number,
-  operationsByType: Object,
-  last24Hours: Array,
-  topUsers: Array
-}
+For security reasons, Telegram asset URLs contain bot tokens and cannot be passed directly to GitHub. A proxy endpoint is required:
+
+```javascript
+// GET /api/telegram-asset/:filePath
+// Internal endpoint that:
+// 1. Accepts the file path from Telegram
+// 2. Constructs the full URL: https://api.telegram.org/file/bot${TELEGRAM_BOT_API_TOKEN}/${filePath}
+// 3. Fetches the asset from Telegram servers
+// 4. Streams the asset data to the client (GitHub MCP)
+// This keeps the bot token secure on the backend
 ```
 
 ### GitHub MCP Tool Schemas
@@ -698,35 +669,14 @@ Response: {
 
 ## Security & Access Control
 
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Bot
-    participant Supabase
-    participant GitHub
-    
-    User->>Bot: /configure command in DM
-    Bot->>User: Request GitHub PAT
-    User->>Bot: Provides PAT + repo
-    Bot->>Bot: Encrypt PAT
-    Bot->>GitHub: Validate token & permissions
-    GitHub-->>Bot: Token valid + scopes
-    Bot->>Supabase: Store encrypted config
-    Bot->>User: Configuration complete
-```
-
 ### Security Measures
 
 1. **Token Management**
    - GitHub PATs encrypted at rest (AES-256-GCM)
    - Tokens never logged or exposed in responses
-   - Automatic token rotation reminders
 
 2. **Access Control**
-   - Whitelist-based group/user filtering
-   - Manager-only configuration changes
+   - Whitelisted Telegram accounts and groups defined via environment variables (ALLOWED_GROUPS, ALLOWED_USERS)
    - Rate limiting per user and group
 
 3. **Input Validation**
@@ -832,7 +782,7 @@ describe('Telegram to GitHub Flow', () => {
 
 ```dockerfile
 # Dockerfile
-FROM node:24-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -843,10 +793,6 @@ RUN npm ci --only=production
 # Copy source
 COPY src ./src
 COPY config ./config
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-  CMD node healthcheck.js
 
 # Start
 CMD ["node", "src/index.js"]
@@ -872,19 +818,24 @@ services:
       - "3000:3000"
     restart: unless-stopped
     depends_on:
-      - redis
-    networks:
-      - telegit-network
-    
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis-data:/data
+      - supabase-db
     networks:
       - telegit-network
 
+  supabase-db:
+    image: supabase/postgres:15.1.0.117
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: telegit
+    volumes:
+      - supabase-data:/var/lib/postgresql/data
+    networks:
+      - telegit-network
+    ports:
+      - "5432:5432"
+
 volumes:
-  redis-data:
+  supabase-data:
 
 networks:
   telegit-network:
@@ -1116,7 +1067,7 @@ LOG_LEVEL=info
 
 # Telegram
 TELEGRAM_BOT_TOKEN=bot_token_here
-TELEGRAM_WEBHOOK_URL=https://telegit.yourdomain.com/webhook/telegram
+TELEGRAM_WEBHOOK_DOMAIN=telegit.yourdomain.com
 TELEGRAM_WEBHOOK_SECRET=random_secret_here
 
 # Supabase
@@ -1189,35 +1140,31 @@ export const metrics = {
 
 ```javascript
 // src/utils/logger.js
-import winston from 'winston';
+import pino from 'pino';
 
-export const logger = winston.createLogger({
+export const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  defaultMeta: { 
+  base: {
     service: 'telegit',
-    version: process.env.npm_package_version 
+    version: process.env.npm_package_version
   },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    }
+  },
+  timestamp: pino.stdTimeFunctions.isoTime
 });
 
 // Structured logging example
-logger.info('Message processed', {
+logger.info({
   groupId: message.chat.id,
   userId: message.from.id,
   intent: result.intent,
   confidence: result.confidence,
   githubIssue: result.issueNumber,
   processingTime: endTime - startTime
-});
+}, 'Message processed');
 ```
 
 ### Health Monitoring
@@ -1289,43 +1236,6 @@ export const alertRules = {
 };
 ```
 
-## Performance Optimization
-
-### Caching Strategy
-
-```javascript
-// src/cache/strategy.js
-const cacheConfig = {
-  conversationContext: {
-    ttl: 3600, // 1 hour
-    maxSize: 1000 // entries
-  },
-  
-  githubIssues: {
-    ttl: 300, // 5 minutes
-    maxSize: 500
-  },
-  
-  userPreferences: {
-    ttl: 86400, // 24 hours
-    maxSize: 10000
-  },
-  
-  llmResponses: {
-    ttl: 1800, // 30 minutes for similar queries
-    maxSize: 100
-  }
-};
-```
-
-### Optimization Techniques
-
-1. **Message Batching**: Group multiple operations for bulk processing
-2. **Lazy Loading**: Load conversation context only when needed
-3. **Connection Pooling**: Reuse database and HTTP connections
-4. **Response Streaming**: Stream LLM responses for faster feedback
-5. **Predictive Caching**: Pre-cache likely GitHub searches
-
 ## Error Handling
 
 ### Error Recovery Flow
@@ -1376,47 +1286,87 @@ const errorMessages = {
 
 ## Extensibility Design
 
-### Plugin Architecture
+### Specialized Agent Architecture
+
+The system uses specialized agents for different integrations (GitHub, Jira, ClickUp, etc.) instead of a plugin system. Each specialized agent has its own set of tools and capabilities.
+
+**Architecture Pattern:**
+- **Intent Processing Agent**: Main agent that parses user intent in an integration-abstract way
+- **Specialized Execution Agents**: Integration-specific agents (e.g., GitHub agent, Jira agent) that execute operations
+- **Hand-off Mechanism**: Intent processing agent hands off to the appropriate execution agent
+
+**MVP Simplification:**
+For the MVP, only one integration agent is linked to each message processing session, so the intent processing agent doesn't need to choose which execution agent to hand off to - it automatically uses the configured integration agent.
+
+**Standard Execution Agent Schema:**
+All execution agents follow a generic structure that can scale to integrations beyond GitHub issues:
 
 ```javascript
-// src/plugins/base.js
-export class IntegrationPlugin {
+// src/agents/base-execution-agent.js
+export class BaseExecutionAgent {
   constructor(config) {
-    this.name = this.constructor.name;
+    this.integrationName = this.constructor.name;
     this.config = config;
+    this.tools = [];
   }
-  
-  // Required methods
+
+  // Required methods - generic interface
   async initialize() { throw new Error('Not implemented'); }
-  async createItem(data) { throw new Error('Not implemented'); }
-  async updateItem(id, data) { throw new Error('Not implemented'); }
-  async searchItems(query) { throw new Error('Not implemented'); }
-  async deleteItem(id) { throw new Error('Not implemented'); }
-  
-  // Lifecycle hooks
-  async beforeCreate(data) { return data; }
-  async afterCreate(result) { return result; }
-  async onError(error) { throw error; }
+  async parseIntent(abstractIntent) { throw new Error('Not implemented'); }
+  async executeCreate(data) { throw new Error('Not implemented'); }
+  async executeUpdate(id, data) { throw new Error('Not implemented'); }
+  async executeSearch(query) { throw new Error('Not implemented'); }
 }
 
-// Example: Future Jira plugin
-export class JiraPlugin extends IntegrationPlugin {
+// src/agents/github-execution-agent.js
+export class GitHubExecutionAgent extends BaseExecutionAgent {
   async initialize() {
-    this.client = new JiraClient(this.config);
-    await this.client.authenticate();
+    // Initialize GitHub MCP tools
+    this.tools = await createGitHubMCPTools(this.config);
   }
-  
-  async createItem(data) {
-    const issue = await this.beforeCreate(data);
-    const result = await this.client.createIssue({
-      project: this.config.project,
-      summary: issue.title,
-      description: issue.body,
-      issueType: this.mapIntentToIssueType(issue.intent)
-    });
-    return this.afterCreate(result);
+
+  async parseIntent(abstractIntent) {
+    // Convert abstract intent to GitHub-specific parameters
+    return {
+      action: abstractIntent.action, // 'create', 'update', 'search'
+      entityType: 'issue',
+      parameters: this.mapToGitHubParams(abstractIntent)
+    };
+  }
+
+  async executeCreate(data) {
+    const tool = this.tools.find(t => t.name === 'github_create_issue');
+    return await tool.invoke(data);
   }
 }
+
+// Future: src/agents/jira-execution-agent.js
+export class JiraExecutionAgent extends BaseExecutionAgent {
+  async initialize() {
+    // Initialize Jira MCP tools or REST client
+    this.tools = await createJiraMCPTools(this.config);
+  }
+
+  async parseIntent(abstractIntent) {
+    // Convert abstract intent to Jira-specific parameters
+    return {
+      action: abstractIntent.action,
+      entityType: 'issue',
+      parameters: this.mapToJiraParams(abstractIntent)
+    };
+  }
+}
+```
+
+**Intent Processing Flow:**
+
+```mermaid
+graph LR
+    Message[User Message] --> IntentAgent[Intent Processing Agent]
+    IntentAgent --> AbstractIntent[Abstract Intent]
+    AbstractIntent --> ExecutionAgent[Execution Agent<br/>GitHub/Jira/etc]
+    ExecutionAgent --> Tools[Integration-Specific Tools]
+    Tools --> Result[Operation Result]
 ```
 
 ## Conclusion
