@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Git
+.git/
+
+# IDE
+.vscode/
+.idea/
+
+# Test outputs
+test-results/
+__snapshots__/
+
+# Misc
+*.min.js
+*.min.css
