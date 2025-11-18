@@ -24,7 +24,7 @@ TeleGit is an AI-powered Telegram bot that transforms conversational messages in
 - **Extensible architecture**: Modular design for future integration targets beyond GitHub
 
 ### Technical Stack Overview
-- **Runtime**: Node.js >= 22.0.0 (LTS) with JavaScript (prefer `*.d.ts` files for type definitions over JSDoc)
+- **Runtime**: Node.js >= 24.0.0 with JavaScript (prefer `*.d.ts` files for type definitions over JSDoc)
 - **AI Orchestration**: LangChain.js + LangGraph
 - **Message Queue**: Bottleneck (in-memory rate limiting)
 - **Storage**: Supabase (PostgreSQL)
