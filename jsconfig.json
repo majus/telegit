@@ -1,0 +1,55 @@
+{
+  "compilerOptions": {
+    // Enable type checking for JavaScript files
+    "checkJs": false,
+
+    // Module resolution
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2022",
+
+    // Allow importing .js files without extension in imports
+    "allowImportingTsExtensions": false,
+
+    // Path resolution
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@config/*": ["config/*"],
+      "@test/*": ["test/*"]
+    },
+
+    // Type checking strictness
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+
+    // Additional checks
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": false,
+
+    // Interop
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Skip type checking of declaration files
+    "skipLibCheck": true,
+
+    // Resolve JSON modules
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "config/**/*",
+    "*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage"
+  ]
+}

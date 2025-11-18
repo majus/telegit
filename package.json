@@ -31,7 +31,10 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "lint": "echo 'Linter not configured yet'",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js"
   },
@@ -53,6 +56,11 @@
     "@vitest/ui": "^2.1.8",
     "@vitest/coverage-v8": "^2.1.8",
     "@faker-js/faker": "^9.3.0",
-    "promptfoo": "^0.101.1"
+    "promptfoo": "^0.101.1",
+    "eslint": "^9.15.0",
+    "prettier": "^3.3.3",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "@eslint/js": "^9.15.0"
   }
 }
