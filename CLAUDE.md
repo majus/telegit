@@ -35,7 +35,7 @@ telegit/
 
 ### Key Dependencies
 - **Telegraf**: NPM library for Telegram Bot API integration
-- **Supabase**: Database backend
+- **PostgreSQL**: Database backend (using `pg` NPM library)
 - **GitHub MCP Server**: For GitHub API integration (NOT generic HTTP client)
 - **LLM/AI SDK**: AI agent SDK for flexibility
 

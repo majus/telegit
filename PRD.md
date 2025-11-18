@@ -27,7 +27,7 @@ TeleGit is an AI-powered Telegram bot that transforms conversational messages in
 - **Runtime**: Node.js >= 22.0.0 (LTS) with JavaScript (prefer `*.d.ts` files for type definitions over JSDoc)
 - **AI Orchestration**: LangChain.js + LangGraph
 - **Message Queue**: Bottleneck (in-memory rate limiting)
-- **Storage**: Supabase (PostgreSQL)
+- **Storage**: PostgreSQL
 - **Testing**: Vitest + @faker-js/faker + Promptfoo
 - **Deployment**: Docker + Dokploy
 - **Integrations**: Telegraf (Telegram), GitHub MCP over HTTP
@@ -53,7 +53,7 @@ graph TB
     end
     
     subgraph "Data Layer"
-        SB[(Supabase<br/>PostgreSQL)]
+        PG[(PostgreSQL)]
         CACHE[In-Memory Cache]
     end
     
@@ -71,8 +71,8 @@ graph TB
     AI --> GH
     AI <--> LLMAPI
     GH <--> GHAPI
-    TB <--> SB
-    AI <--> SB
+    TB <--> PG
+    AI <--> PG
     AI <--> CACHE
 ```
 
@@ -87,11 +87,11 @@ sequenceDiagram
     participant AI
     participant MCP
     participant GitHub
-    participant Supabase
+    participant PostgreSQL
     
     User->>Telegram: Send message with #tag/@mention
     Telegram->>Bot: Webhook/Polling
-    Bot->>Supabase: Check GitHub auth for chat
+    Bot->>PostgreSQL: Check GitHub auth for chat
     alt No GitHub authentication
         Bot->>User: Trigger PAT setup workflow (see Auth Flow diagram)
         Note over Bot,User: Authentication must be completed first
@@ -100,7 +100,7 @@ sequenceDiagram
         Bot->>Telegram: React with 👀 (Analyzing)
         Bot->>Queue: Enqueue processing job
         Queue->>AI: Process message (rate limited)
-        AI->>Supabase: Get GitHub auth for chat
+        AI->>PostgreSQL: Get GitHub auth for chat
         AI->>AI: Configure GitHub MCP client with PAT
         AI->>AI: Extract intent & classify
         AI->>Telegram: Update reaction to 🤔 (Processing)
@@ -108,7 +108,7 @@ sequenceDiagram
         MCP->>GitHub: API call (create/update issue)
         GitHub-->>MCP: Response
         MCP-->>AI: Operation result
-        AI->>Supabase: Store operation record
+        AI->>PostgreSQL: Store operation record
         AI->>Telegram: Final reaction (👾/🫡/🦄/😵‍💫)
         AI->>Telegram: Post feedback message
         Bot->>Bot: Schedule message deletion (10 min)
@@ -122,13 +122,13 @@ sequenceDiagram
     participant User
     participant Telegram
     participant Bot
-    participant Supabase
+    participant PostgreSQL
     participant GitHub
 
     User->>Telegram: Send message in chat with #tag/@mention
     Telegram->>Bot: Webhook/Polling
-    Bot->>Supabase: Check GitHub auth for chat
-    Supabase-->>Bot: No authentication found
+    Bot->>PostgreSQL: Check GitHub auth for chat
+    PostgreSQL-->>Bot: No authentication found
 
     Bot->>Telegram: Post auth required message in chat
     Bot->>User: Send DM with PAT setup instructions
@@ -145,7 +145,7 @@ sequenceDiagram
 
     alt Validation successful
         Bot->>Bot: Encrypt PAT (AES-256-GCM)
-        Bot->>Supabase: Store encrypted PAT + repo for chat
+        Bot->>PostgreSQL: Store encrypted PAT + repo for chat
         Bot->>User: Configuration successful
         Bot->>Telegram: Post success message in chat
         Note over Bot,Telegram: Bot ready to process messages
@@ -383,36 +383,44 @@ export const llmLimiter = new Bottleneck({
 
 **Key Files:**
 ```javascript
-// supabase.js - Database client
-import { createClient } from '@supabase/supabase-js';
+// db.js - Database client
+import pg from 'pg';
+const { Pool } = pg;
 
-export const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+export const pool = new Pool({
+  host: process.env.POSTGRES_HOST,
+  port: process.env.POSTGRES_PORT,
+  database: process.env.POSTGRES_DB,
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
 // repositories/config.js
 export class ConfigRepository {
   async getGroupConfig(groupId) {
-    const { data, error } = await supabase
-      .from('group_configs')
-      .select('*')
-      .eq('telegram_group_id', groupId)
-      .single();
-    
-    return data;
+    const result = await pool.query(
+      'SELECT * FROM group_configs WHERE telegram_group_id = $1',
+      [groupId]
+    );
+
+    return result.rows[0];
   }
-  
+
   async setGroupConfig(groupId, config) {
-    return supabase
-      .from('group_configs')
-      .upsert({
-        telegram_group_id: groupId,
-        github_repo: config.repo,
-        github_token: this.encrypt(config.token),
-        manager_user_id: config.managerId,
-        updated_at: new Date().toISOString()
-      });
+    return pool.query(
+      `INSERT INTO group_configs (telegram_group_id, github_repo, github_token, manager_user_id, updated_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (telegram_group_id)
+       DO UPDATE SET
+         github_repo = EXCLUDED.github_repo,
+         github_token = EXCLUDED.github_token,
+         manager_user_id = EXCLUDED.manager_user_id,
+         updated_at = EXCLUDED.updated_at`,
+      [groupId, config.repo, this.encrypt(config.token), config.managerId, new Date().toISOString()]
+    );
   }
 }
 ```
@@ -603,7 +611,7 @@ Response: {
   services: {
     telegram: Boolean,
     github: Boolean,
-    supabase: Boolean,
+    postgresql: Boolean,
     llm: Boolean
   }
 }
@@ -805,20 +813,49 @@ CMD ["node", "src/index.js"]
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: telegit
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - telegit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   telegit:
     build: .
     environment:
       NODE_ENV: production
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_KEY: ${SUPABASE_KEY}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: telegit
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       LLM_API_KEY: ${LLM_API_KEY}
       MCP_GITHUB_ENDPOINT: ${MCP_GITHUB_ENDPOINT}
     ports:
       - "3000:3000"
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - telegit-network
+
+volumes:
+  postgres_data:
 
 networks:
   telegit-network:
@@ -839,8 +876,9 @@ environment:
 
 secrets:
   - TELEGRAM_BOT_TOKEN
-  - SUPABASE_URL
-  - SUPABASE_KEY
+  - POSTGRES_HOST
+  - POSTGRES_USER
+  - POSTGRES_PASSWORD
   - LLM_API_KEY
   - ENCRYPTION_KEY
 
@@ -898,8 +936,9 @@ metadata:
 type: Opaque
 stringData:
   TELEGRAM_BOT_TOKEN: "" # Set via kubectl or external secrets operator
-  SUPABASE_URL: ""
-  SUPABASE_KEY: ""
+  POSTGRES_HOST: ""
+  POSTGRES_USER: ""
+  POSTGRES_PASSWORD: ""
   LLM_API_KEY: ""
   ENCRYPTION_KEY: ""
   TELEGRAM_WEBHOOK_SECRET: ""
@@ -1053,9 +1092,12 @@ TELEGRAM_BOT_TOKEN=bot_token_here
 TELEGRAM_WEBHOOK_DOMAIN=telegit.yourdomain.com
 TELEGRAM_WEBHOOK_SECRET=random_secret_here
 
-# Supabase
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_KEY=service_role_key_here
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=telegit
+POSTGRES_USER=telegit_user
+POSTGRES_PASSWORD=secure_password_here
 
 # LLM Provider
 LLM_PROVIDER=openai
@@ -1156,28 +1198,28 @@ logger.info({
 graph TD
     HC[Health Check Endpoint] --> T[Telegram Connection]
     HC --> G[GitHub MCP Status]
-    HC --> S[Supabase Connection]
+    HC --> P[PostgreSQL Connection]
     HC --> L[LLM API Status]
     HC --> Q[Queue Health]
-    
+
     T --> TS{Status}
     G --> GS{Status}
-    S --> SS{Status}
+    P --> PS{Status}
     L --> LS{Status}
     Q --> QS{Status}
-    
+
     TS -->|Healthy| OK[Overall: Healthy]
     TS -->|Unhealthy| DEG[Overall: Degraded]
-    
+
     GS -->|Healthy| OK
     GS -->|Unhealthy| DEG
-    
-    SS -->|Healthy| OK
-    SS -->|Unhealthy| CRIT[Overall: Critical]
-    
+
+    PS -->|Healthy| OK
+    PS -->|Unhealthy| CRIT[Overall: Critical]
+
     LS -->|Healthy| OK
     LS -->|Unhealthy| DEG
-    
+
     QS -->|Healthy| OK
     QS -->|Unhealthy| DEG
 ```
@@ -1354,7 +1396,7 @@ graph LR
 
 ## Conclusion
 
-TeleGit represents a production-ready architecture for AI-powered chat-to-task-management integration. The system leverages mature technologies (LangChain.js, Bottleneck, Supabase) while maintaining extensibility for future enhancements. The modular design, comprehensive testing strategy, and robust error handling ensure reliable operation at scale.
+TeleGit represents a production-ready architecture for AI-powered chat-to-task-management integration. The system leverages mature technologies (LangChain.js, Bottleneck, PostgreSQL) while maintaining extensibility for future enhancements. The modular design, comprehensive testing strategy, and robust error handling ensure reliable operation at scale.
 
 ### Key Success Factors
 1. **Non-disruptive UX** through emoji reactions and auto-deleting messages
