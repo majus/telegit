@@ -31,19 +31,27 @@ telegit/
 │   │       ├── operations.js # Operations tracking repository
 │   │       ├── feedback.js # Feedback messages repository
 │   │       └── context.js  # Conversation context repository
+│   ├── services/
+│   │   └── telegram/       # Telegram bot service (partial implementation)
+│   ├── types/              # TypeScript type definitions
 │   └── utils/              # Utility functions
 │       └── encryption.js   # AES-256-GCM encryption utility
 ├── test/                    # Test files
-│   └── unit/               # Unit tests
-│       ├── database/       # Database tests
-│       │   └── repositories.test.js
-│       └── utils/          # Utility tests
-│           └── encryption.test.js
+│   ├── unit/               # Unit tests
+│   │   ├── database/       # Database tests
+│   │   │   └── repositories.test.js
+│   │   ├── telegram/       # Telegram bot tests
+│   │   └── utils/          # Utility tests
+│   │       └── encryption.test.js
+│   ├── mocks/              # Mock data generators
+│   └── helpers/            # Test helpers
+├── config/                 # Configuration files
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
 └── CLAUDE.md               # This file - AI assistant guide
 ```
 
+**Current State**: Phase 1 complete (project setup), Phase 2 partially implemented (database layer complete), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management).
 ## Technical Stack
 
 ### Core Technologies
