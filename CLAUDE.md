@@ -24,6 +24,10 @@ telegit/
 │   └── migrations/          # Migration files
 │       └── 001_initial_schema.sql
 ├── src/                      # Source code
+│   ├── ai/                  # AI processing engine (Phase 4)
+│   │   ├── llm-client.js        # LLM client initialization
+│   │   ├── state-schema.js      # LangGraph state schema
+│   │   └── intent-classifier.js # Intent classification
 │   ├── database/            # Database layer
 │   │   ├── db.js           # PostgreSQL client setup
 │   │   └── repositories/   # Data access repositories
@@ -36,22 +40,28 @@ telegit/
 │   ├── types/              # TypeScript type definitions
 │   └── utils/              # Utility functions
 │       └── encryption.js   # AES-256-GCM encryption utility
+├── prompts/                 # LLM prompts
+│   └── intent-classification.txt
 ├── test/                    # Test files
 │   ├── unit/               # Unit tests
+│   │   ├── ai/             # AI component tests
 │   │   ├── database/       # Database tests
 │   │   │   └── repositories.test.js
 │   │   ├── telegram/       # Telegram bot tests
 │   │   └── utils/          # Utility tests
 │   │       └── encryption.test.js
+│   ├── promptfoo/          # Promptfoo evaluations
 │   ├── mocks/              # Mock data generators
 │   └── helpers/            # Test helpers
 ├── config/                 # Configuration files
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
-└── CLAUDE.md               # This file - AI assistant guide
+├── CLAUDE.md               # This file - AI assistant guide
+└── vitest.config.js        # Test configuration
 ```
 
-**Current State**: Phase 1 complete (project setup), Phase 2 partially implemented (database layer complete), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management).
+**Current State**: Phase 1 complete (project setup), Phase 2 complete (database layer), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management), Phase 4.1-4.2 complete (AI Processing Engine - LangChain Setup & Intent Classification).
+
 ## Technical Stack
 
 ### Core Technologies
@@ -65,7 +75,8 @@ telegit/
 - **Telegraf**: NPM library for Telegram Bot API integration
 - **PostgreSQL**: Database backend (using `pg` NPM library)
 - **GitHub MCP Server**: For GitHub API integration (NOT generic HTTP client)
-- **LLM/AI SDK**: AI agent SDK for flexibility
+- **LangChain**: AI agent SDK (@langchain/core, @langchain/openai, @langchain/langgraph, @langchain/mcp-adapters)
+- **Promptfoo**: LLM evaluation and testing framework
 
 ### Integrations
 - Telegram Bot API: https://core.telegram.org/bots/api
@@ -160,14 +171,71 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - Use: `git push -u origin <branch-name>`
 - CRITICAL: Branch must start with `claude/` and end with matching session id
 
+## Implemented Components
+
+### Phase 1: Project Setup (Complete ✓)
+- Package configuration with all dependencies
+- Environment configuration with Zod validation
+- TypeScript type definitions
+- Vitest test framework
+- Promptfoo configuration
+- Mock data generators and test helpers
+
+### Phase 2: Database & Data Layer (Complete ✓)
+- PostgreSQL schema with migrations
+- Database client setup with connection pooling
+- Repositories: ConfigRepository, OperationsRepository, FeedbackRepository, ConversationContextRepository
+- AES-256-GCM encryption utility for secure PAT storage
+- Comprehensive unit tests
+
+### Phase 3: Telegram Bot Service (Partial ✓)
+- Bot initialization with Telegraf
+- Message filtering (triggers detection)
+- Reaction management system
+- Tests for core functionality
+
+### Phase 4.1-4.2: AI Processing Engine - LangChain & Intent Classification (Complete ✓)
+
+#### LLM Client (`src/ai/llm-client.js`)
+- Multi-provider support (OpenAI, Anthropic framework)
+- Configurable temperature, retries, and timeouts
+- Specialized clients for classification and generation
+- Connection validation for health checks
+
+#### State Schema (`src/ai/state-schema.js`)
+- LangGraph state annotation with all channels
+- Intent types: create_bug, create_task, create_idea, update_issue, search_issues, unknown
+- State validation and initialization helpers
+
+#### Intent Classifier (`src/ai/intent-classifier.js`)
+- LLM-based message analysis and classification
+- Structured output using Zod schemas
+- Entity extraction (title, description, labels, assignees, issue numbers)
+- Automatic hashtag and mention extraction
+- Context-aware classification with conversation threads
+- Batch classification support
+
+#### Prompts (`prompts/intent-classification.txt`)
+- Comprehensive intent classification prompt
+- Clear intent type definitions with examples
+- Entity extraction rules
+- Confidence scoring guidelines
+- Context handling instructions
+
+#### Tests
+- Unit tests for intent classifier (`test/unit/ai/intent-classifier.test.js`)
+- Promptfoo evaluation configuration (`test/promptfoo/intent-classification.yaml`)
+- Target: >80% classification accuracy
+
 ## AI Assistant Guidelines
 
 ### General Principles
 - Read README.md for detailed feature specifications and requirements
 - Follow ES module syntax (`import/export`, not `require()`)
 - Use GitHub MCP Server for GitHub API (not generic HTTP clients)
+- Use LangChain for AI workflows (already integrated)
 - Keep integrations modular and pluggable
-- Include tests when implementing features
+- Include tests when implementing features (Vitest + Promptfoo)
 - Add comments for non-obvious logic
 - Update documentation when making changes
 
@@ -189,3 +257,10 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - [Dokploy Documentation](https://docs.dokploy.com/docs/core)
 - [Vitest Documentation](https://vitest.dev/)
 - Project README.md for detailed feature specifications
+
+## Version History
+
+- **2025-11-18**: Initial CLAUDE.md created
+- **2025-11-18**: Distilled to remove speculative content, focus on current state and generic guidelines
+- **2025-11-18**: Updated with Phase 2 (Database layer) and Phase 3 (Telegram bot core) implementations
+- **2025-11-18**: Updated with Phase 4.1-4.2 implementation (LLM client, state schema, intent classifier, prompts, tests)
