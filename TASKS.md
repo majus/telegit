@@ -1356,73 +1356,182 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ## Summary & Milestones
 
-### Milestone 1: Foundation (Phases 1-2)
-**Target**: Week 2
-- Project scaffolded
-- Dependencies installed
-- Database schema created
+### Milestone 1: Foundation (Phase 1)
+**Target**: Week 1
+- Project scaffolded with full directory structure
+- Dependencies installed and configured
+- Test infrastructure ready (mocks, helpers)
 - Development environment ready
 
-### Milestone 2: Core Services (Phases 3-4)
-**Target**: Week 4
-- Telegram bot operational
-- AI processing working
-- LangGraph workflow functional
-- Basic end-to-end flow complete
+### Milestone 2: Parallel Development Kickoff (After Phase 1)
+**Target**: Week 1-3 (PARALLEL WORK BEGINS)
+- **Critical Path**: Database schema + Telegram bot foundation
+- **Parallel Track 1**: LLM setup + Intent classification
+- **Parallel Track 2**: MCP client + GitHub tools setup
+- **Parallel Track 3**: Rate limiters implemented
+- **Parallel Track 4**: Core security (encryption, whitelists, sanitization)
+- **Parallel Track 5**: Logging and metrics infrastructure
 
-### Milestone 3: Integration (Phase 5)
-**Target**: Week 5
-- GitHub MCP integration working
-- Issues created from Telegram
+### Milestone 3: Core Integration (Phases 3-4-5 Complete)
+**Target**: Week 4-5 (CONVERGENCE)
+- Telegram bot fully operational with all handlers
+- Complete AI workflow with LangGraph
+- GitHub MCP integration working end-to-end
+- Issues created and updated from Telegram
 - Image attachments supported
 - Undo functionality implemented
+- Basic end-to-end flow complete with tests
 
-### Milestone 4: Production Ready (Phases 6-8)
-**Target**: Week 7
-- Rate limiting enforced
-- Security measures in place
+### Milestone 4: Production Ready (Phases 6-8 Complete)
+**Target**: Week 6-7
+- Message queue integrated with all components
+- Rate limiting enforced across all APIs
+- All security measures in place
 - Monitoring and logging operational
-- Health checks working
-- All tests passing alongside implementation
+- Health checks for all services
+- All tests passing (unit + integration + LLM eval)
+- Code coverage >70%
 
 ### Milestone 5: Deployment (Phase 9-10)
-**Target**: Week 9
-- Docker images built
+**Target**: Week 7-8
+- Docker images built and optimized
 - CI/CD pipeline operational
-- Deployed to staging
+- Deployed to staging environment
 - Documentation complete
+- Load testing performed
 
 ### Milestone 6: MVP Release
-**Target**: Week 10
+**Target**: Week 8 (With Parallelization) or Week 10 (Sequential)
 - Deployed to production
 - Monitoring active
+- Alerting configured
 - Initial user feedback collected
+- Bug fixes and iterations
 
 ### Milestone 7: Extensibility (Phase 11)
-**Target**: Post-MVP
-- Multi-integration architecture
+**Target**: Post-MVP (Week 12+)
+- Multi-integration architecture refactored
 - Example integrations (Jira, etc.)
 - Plugin documentation
+- Community contributions enabled
 
 ---
 
-## Task Dependency Graph (Critical Path)
+## Task Dependency Graph (Parallel Opportunities)
 
+### Linear View (Oversimplified - See Parallel View Below)
 ```
-Phase 1 (Setup + Test Infrastructure)
-  └─> Phase 2 (Database + Tests)
-      └─> Phase 3 (Telegram Bot + Tests)
-          └─> Phase 4 (AI Engine + Tests)
-              └─> Phase 5 (GitHub Integration)
-                  └─> Phase 6 (Rate Limiting)
-                      └─> Phase 7 (Security + Tests)
-                          └─> Phase 8 (Monitoring)
-                              └─> Phase 9 (Deployment)
-                                  └─> Phase 10 (Documentation)
-                                      └─> Phase 11 (Extensibility)
+Phase 1 → Phase 2 → Phase 3 → Complete Integration → Deployment
 ```
 
-**Note**: Tests are now integrated within each phase, written alongside the code they test.
+### Detailed Parallel View
+
+```
+Phase 1: Project Setup & Test Infrastructure
+├─────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│                 │                  │                  │                  │                  │
+▼                 ▼                  ▼                  ▼                  ▼                  ▼
+Phase 2:          Phase 4.1-4.2:    Phase 5.1-5.2.1:  Phase 6:           Phase 7.1-7.3.1:  Phase 8.1-8.2:
+Database          LLM Setup &        MCP Client &      Rate Limiters     Security Core     Logging & Metrics
++ Tests           Intent Class.      GitHub Tools      (all 3)            (Encryption,      (Pino, Prometheus)
+                  + Tests            + Basic Tests                        Whitelist,
+                                                                          Sanitization)
+                                                                          + Tests
+│
+▼
+Phase 3: Telegram Bot + Tests
+├────────────────┬──────────────────┐
+│                │                  │
+▼                ▼                  ▼
+Phase 4.3-4.4:   Phase 5.2.2-5.2.4: Phase 7.3.2-7.4:
+Complete AI      Image Processing   Schema Valid.
+Workflow         & Undo Logic       & Webhook Sec.
++ Integration    + Tests            + Tests
+Tests
+│                │
+└────────┬───────┘
+         │
+         ▼
+Phase 6.2: Message Queue Integration
+Phase 8.3: Health Checks (needs all services)
+         │
+         ▼
+Phase 9: Deployment & Infrastructure
+         │
+         ▼
+Phase 10: Documentation (can start anytime, finalize here)
+         │
+         ▼
+Phase 11: Extensibility (Post-MVP)
+```
+
+### Parallelization Strategy
+
+**🚀 Stage 1 - After Phase 1 (HIGHLY PARALLEL):**
+Can work on **6 phases simultaneously**:
+- **Phase 2**: Database (Critical Path)
+- **Phase 4.1-4.2**: LLM setup, Intent Classifier (Independent)
+- **Phase 5.1-5.2.1**: MCP Client, GitHub Tools (Independent)
+- **Phase 6**: All rate limiters (Independent)
+- **Phase 7.1-7.3.1**: Encryption, Whitelists, Sanitization (Independent)
+- **Phase 8.1-8.2**: Logging, Metrics (Independent)
+
+**⚡ Stage 2 - After Phase 2 (MODERATE PARALLEL):**
+Can work on **4 tracks simultaneously**:
+- **Phase 3**: Telegram Bot (Critical Path)
+- Continue **Phase 4.1-4.2** if not complete
+- Continue **Phase 5** if not complete
+- Continue **Phase 7-8** if not complete
+
+**🔗 Stage 3 - After Phase 3 (CONVERGENCE):**
+Can work on **3 tracks simultaneously**:
+- **Phase 4.3-4.4**: Complete AI Workflow with LangGraph
+- **Phase 5.2.2-5.2.4**: Image Processing, Telegram Asset Proxy, Undo
+- **Phase 7.3.2-7.4**: Schema Validation, Webhook Security
+
+**🎯 Stage 4 - Integration (SEQUENTIAL):**
+- **Phase 6.2**: Message Queue Integration (needs all components)
+- **Phase 8.3**: Health Checks (needs all services)
+
+**📦 Stage 5 - Finalization (PARALLEL):**
+Can work on **2 tracks simultaneously**:
+- **Phase 9**: Deployment & Infrastructure
+- **Phase 10**: Documentation (can overlap with all phases)
+
+**🔮 Stage 6 - Post-MVP:**
+- **Phase 11**: Extensibility
+
+### Time Savings with Parallelization
+
+**Without Parallel Work**: ~10-12 weeks (sequential)
+**With Parallel Work**: ~6-8 weeks (with proper team distribution)
+
+**Key Insight**: Phases 4-8 contain many independent components that only depend on Phase 1 (project setup). This allows for massive parallelization in early stages.
+
+### Recommended Team Distribution (for parallel work)
+
+**Solo Developer**: Follow critical path (Phase 1→2→3→4→5→6→7→8→9→10), implement supporting phases as needed.
+
+**2 Developers**:
+- Dev 1: Critical Path (Phases 1→2→3)
+- Dev 2: After Phase 1, work on Phases 6, 7, 8 (Infrastructure & Security)
+- Both: Converge on Phases 4-5 integration
+
+**3-4 Developers**:
+- Dev 1: Phases 1→2→3 (Database & Telegram Bot)
+- Dev 2: Phases 4.1-4.2→4.3-4.4 (AI Engine)
+- Dev 3: Phases 5.1-5.2→complete (GitHub Integration)
+- Dev 4: Phases 6, 7, 8 (Rate Limiting, Security, Monitoring)
+
+**5+ Developers**:
+- Dev 1: Phases 1→2 (Setup & Database)
+- Dev 2: Phase 3 (Telegram Bot)
+- Dev 3: Phase 4 (AI Engine complete)
+- Dev 4: Phase 5 (GitHub Integration complete)
+- Dev 5: Phases 6, 7, 8 (Infrastructure, Security, Monitoring)
+- Dev 6+: Phase 10 (Documentation), Phase 9 (DevOps), Testing support
+
+**Note**: Tests are integrated within each phase, written alongside the code they test.
 
 ---
 
@@ -1433,7 +1542,14 @@ Phase 1 (Setup + Test Infrastructure)
 **In Progress**: 0
 **Not Started**: 120+
 
-**Estimated Timeline**: 10-12 weeks to MVP
+**Estimated Timeline**:
+- **Sequential Development**: 10-12 weeks to MVP
+- **Parallel Development (3-4 devs)**: 6-8 weeks to MVP
+- **Aggressive Parallel (5+ devs)**: 5-7 weeks to MVP
+
+**Critical Path**: Phase 1 → Phase 2 → Phase 3 → Integration → Deployment (~5-6 weeks minimum)
+
+**Parallelizable Work**: ~40-50% of tasks can be done in parallel after Phase 1
 
 **Note**: Task count increased as tests are now individual tasks alongside implementation.
 
@@ -1458,5 +1574,5 @@ Phase 1 (Setup + Test Infrastructure)
 ---
 
 **Last Updated**: 2025-11-18
-**Version**: 2.0
-**Status**: Restructured with tests integrated alongside implementation (TDD approach)
+**Version**: 2.1
+**Status**: Restructured with tests integrated alongside implementation (TDD approach) + Detailed parallel dependency analysis
