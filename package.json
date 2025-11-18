@@ -1,0 +1,30 @@
+{
+  "name": "@majus/telegit",
+  "version": "1.0.0",
+  "description": "AI-powered Telegram bot that performs user actions from Telegram chat to GitHub issues",
+  "keywords": [
+    "telegram",
+    "bot",
+    "ai",
+    "github",
+    "langchain"
+  ],
+  "homepage": "https://github.com/majus/telegit#readme",
+  "bugs": {
+    "url": "https://github.com/majus/telegit/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/majus/telegit.git"
+  },
+  "license": "MIT",
+  "contributors": [
+    "Denis Perov <denis@majus.org> https://majus.org",
+    "Dmitriy Melnik <dmitriy.melnik@drim.dev> https://drim.dev"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
