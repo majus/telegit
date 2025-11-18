@@ -817,25 +817,8 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-    depends_on:
-      - supabase-db
     networks:
       - telegit-network
-
-  supabase-db:
-    image: supabase/postgres:15.1.0.117
-    environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: telegit
-    volumes:
-      - supabase-data:/var/lib/postgresql/data
-    networks:
-      - telegit-network
-    ports:
-      - "5432:5432"
-
-volumes:
-  supabase-data:
 
 networks:
   telegit-network:
