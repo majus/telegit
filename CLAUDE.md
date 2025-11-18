@@ -43,11 +43,17 @@ telegit/
 │   │       ├── operations.js # Operations tracking repository
 │   │       ├── feedback.js # Feedback messages repository
 │   │       └── context.js  # Conversation context repository
+│   ├── integrations/        # External integrations
+│   │   └── github/         # GitHub MCP integration
+│   │       ├── mcp-client.js      # MCP client with SSE transport
+│   │       ├── mcp-adapter.js     # LangChain tool adapter
+│   │       └── tools.js           # GitHub tool wrapper functions
 │   ├── services/
 │   │   └── telegram/       # Telegram bot service (partial implementation)
 │   ├── types/              # TypeScript type definitions
-│   └── utils/              # Utility functions
-│       └── encryption.js   # AES-256-GCM encryption utility
+│   ├── utils/              # Utility functions
+│   │   └── encryption.js   # AES-256-GCM encryption utility
+│   └── api/                # API endpoints
 ├── prompts/                 # LLM prompts
 │   └── intent-classification.txt
 ├── test/                    # Test files
@@ -58,15 +64,19 @@ telegit/
 │   │   ├── telegram/       # Telegram bot tests
 │   │   └── utils/          # Utility tests
 │   │       └── encryption.test.js
+│   ├── integration/        # Integration tests
 │   ├── promptfoo/          # Promptfoo evaluations
 │   ├── mocks/              # Mock data generators
 │   └── helpers/            # Test helpers
 ├── config/                 # Configuration files
+│   └── env.js              # Environment variable loader with validation
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
 ├── CLAUDE.md               # This file - AI assistant guide
 └── vitest.config.js        # Test configuration
 ```
+
+**Current State**: Phase 1 (Project Setup) complete. Phase 5 (GitHub MCP Integration) partially implemented - MCP client, adapter, and tool functions are ready.
 
 ## Technical Stack
 
