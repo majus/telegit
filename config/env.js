@@ -19,7 +19,11 @@ const envSchema = z.object({
   GITHUB_MCP_SERVER_URL: z.string().url().optional().default('http://localhost:3000/mcp'),
 
   // Database Configuration
-  DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
+  POSTGRES_HOST: z.string().optional().default('localhost'),
+  POSTGRES_PORT: z.string().optional().default('5432'),
+  POSTGRES_DB: z.string().optional().default('telegit'),
+  POSTGRES_USER: z.string().optional().default('postgres'),
+  POSTGRES_PASSWORD: z.string().optional(),
 
   // Security Configuration
   ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
@@ -46,6 +50,29 @@ export function loadConfig() {
     // Validate environment variables
     const env = envSchema.parse(process.env);
 
+    // Build database configuration from POSTGRES_* variables
+    const host = env.POSTGRES_HOST;
+    const port = parseInt(env.POSTGRES_PORT, 10);
+    const database = env.POSTGRES_DB;
+    const user = env.POSTGRES_USER;
+    const password = env.POSTGRES_PASSWORD;
+
+    // Build database URL
+    const credentials = password ? `${user}:${password}` : user;
+    const url = `postgresql://${credentials}@${host}:${port}/${database}`;
+
+    const databaseConfig = {
+      host,
+      port,
+      database,
+      user,
+      password,
+      url,
+      max: 20, // Connection pool size (as per PRD)
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+
     // Parse and transform into structured config
     const config = {
       telegram: {
@@ -55,9 +82,7 @@ export function loadConfig() {
       github: {
         mcpServerUrl: env.GITHUB_MCP_SERVER_URL,
       },
-      database: {
-        url: env.DATABASE_URL,
-      },
+      database: databaseConfig,
       security: {
         encryptionKey: env.ENCRYPTION_KEY,
       },

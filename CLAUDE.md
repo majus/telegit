@@ -15,14 +15,34 @@ This document provides guidance for AI assistants working on the TeleGit codebas
 
 ```
 telegit/
-├── .git/                 # Git repository
-├── .nvm                  # Node.js version (22)
-├── package.json          # Project configuration and dependencies
-├── README.md             # Comprehensive project documentation
-└── CLAUDE.md             # This file - AI assistant guide
+├── .git/                     # Git repository
+├── .nvm                      # Node.js version (22)
+├── db/                       # Database files
+│   ├── schema.sql           # PostgreSQL schema definition
+│   ├── init.sql             # Database initialization script
+│   ├── migrate.js           # Migration runner
+│   └── migrations/          # Migration files
+│       └── 001_initial_schema.sql
+├── src/                      # Source code
+│   ├── database/            # Database layer
+│   │   ├── db.js           # PostgreSQL client setup
+│   │   └── repositories/   # Data access repositories
+│   │       ├── config.js   # Group configuration repository
+│   │       ├── operations.js # Operations tracking repository
+│   │       ├── feedback.js # Feedback messages repository
+│   │       └── context.js  # Conversation context repository
+│   └── utils/              # Utility functions
+│       └── encryption.js   # AES-256-GCM encryption utility
+├── test/                    # Test files
+│   └── unit/               # Unit tests
+│       ├── database/       # Database tests
+│       │   └── repositories.test.js
+│       └── utils/          # Utility tests
+│           └── encryption.test.js
+├── package.json            # Project configuration and dependencies
+├── README.md               # Comprehensive project documentation
+└── CLAUDE.md               # This file - AI assistant guide
 ```
-
-**Current State**: Early stage - only basic configuration files exist. Implementation has not started.
 
 ## Technical Stack
 
@@ -103,8 +123,3 @@ telegit/
 - [Dokploy Documentation](https://docs.dokploy.com/docs/core)
 - [Vitest Documentation](https://vitest.dev/)
 - Project README.md for detailed feature specifications
-
-## Version History
-
-- **2025-11-18**: Initial CLAUDE.md created
-- **2025-11-18**: Distilled to remove speculative content, focus on current state and generic guidelines
