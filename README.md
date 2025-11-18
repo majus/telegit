@@ -15,7 +15,7 @@ The bot performs actions optimistically without requiring constant user confirma
 - Docker
 - [Dokploy](https://docs.dokploy.com/docs/core)
 - [Telegraf](https://www.npmjs.com/package/telegraf) NPM library
-- Supabase
+- PostgreSQL
 
 Some popular AI agent SDK must be integrated for flexibility and potential extendability of the AI workflow. The GitHub API must be integrated via MVP tool rather than via generic HTTP API client.
 
