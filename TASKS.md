@@ -42,7 +42,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Dependencies**: Task 1.1.1
 - **Affected Files**: `package.json`
 - **Key Dependencies**:
-  - Core: `telegraf`, `@supabase/supabase-js`, `bottleneck`
+  - Core: `telegraf`, `pg`, `bottleneck`
   - AI/LangChain: `@langchain/core`, `@langchain/langgraph`, `@langchain/openai`, `@langchain/anthropic`, `@langchain/mcp-adapters`
   - MCP SDK: `@modelcontextprotocol/sdk`
   - Testing: `vitest`, `@faker-js/faker`, `promptfoo`
@@ -74,7 +74,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Environment Variables**:
   - `NODE_ENV`, `LOG_LEVEL`, `PORT`
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_DOMAIN`, `TELEGRAM_WEBHOOK_SECRET`
-  - `SUPABASE_URL`, `SUPABASE_KEY`
+  - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
   - `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`
   - `MCP_GITHUB_ENDPOINT`, `MCP_TIMEOUT`
   - `ENCRYPTION_KEY`, `ALLOWED_GROUPS`, `ALLOWED_USERS`
@@ -138,11 +138,11 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ### 2.1 Database Schema
 
-#### Task 2.1.1: Create Supabase Database Schema
+#### Task 2.1.1: Create PostgreSQL Database Schema
 - **Description**: Define and create database tables for group configs, operations, feedback, and context
 - **Complexity**: Medium
 - **Dependencies**: None
-- **Affected Files**: `database/schema.sql`
+- **Affected Files**: `db/schema.sql`
 - **Tables**:
   - `group_configs` - Telegram group configuration and GitHub credentials
   - `operations` - Operation history and tracking
@@ -156,19 +156,19 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Complexity**: Low
 - **Dependencies**: Task 2.1.1
 - **Affected Files**:
-  - `database/migrations/001_initial_schema.sql`
-  - `database/migrate.js`
+  - `db/migrations/001_initial_schema.sql`
+  - `db/migrate.js`
 - **Testing**: Migrations run successfully, rollback works
 - **Status**: ☐
 
 ### 2.2 Data Access Layer
 
-#### Task 2.2.1: Implement Supabase Client Setup
-- **Description**: Create Supabase client initialization and connection management
+#### Task 2.2.1: Implement PostgreSQL Client Setup
+- **Description**: Create PostgreSQL client initialization and connection management using `pg` library
 - **Complexity**: Low
 - **Dependencies**: Task 1.1.4, Task 2.1.1
-- **Affected Files**: `src/database/supabase.js`
-- **Testing**: Connection establishes successfully, environment variables loaded
+- **Affected Files**: `src/database/db.js`
+- **Testing**: Connection establishes successfully, environment variables loaded, connection pooling configured
 - **Status**: ☐
 
 #### Task 2.2.2: Implement ConfigRepository
@@ -1057,7 +1057,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Affected Files**: `src/api/health.js`
 - **Checks**:
   - Telegram connection status
-  - Supabase connection status
+  - PostgreSQL connection status
   - LLM API status
   - GitHub MCP status
   - Queue health
@@ -1070,7 +1070,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
     "services": {
       "telegram": true,
       "github": true,
-      "supabase": true,
+      "postgresql": true,
       "llm": true
     }
   }
@@ -1121,8 +1121,9 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Affected Files**: `docker-compose.yml`
 - **Services**:
   - telegit (main app)
+  - postgres (PostgreSQL database)
   - Networks configuration
-- **Testing**: `docker-compose up` works
+- **Testing**: `docker-compose up` works, PostgreSQL accessible
 - **Status**: ☐
 
 #### Task 9.1.3: Create .dockerignore
@@ -1183,7 +1184,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Affected Files**: `.github/workflows/test.yml`
 - **Steps**:
   - Checkout code
-  - Setup Node.js 24
+  - Setup Node.js 22
   - Install dependencies
   - Run linter
   - Run unit tests
@@ -1230,7 +1231,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Documentation**:
   - Telegram bot creation
   - GitHub PAT setup
-  - Supabase setup
+  - PostgreSQL database setup
   - LLM API setup
   - Environment variables
   - Secrets management
@@ -1469,7 +1470,7 @@ Phase 11: Extensibility (Post-MVP)
 
 **🚀 Stage 1 - After Phase 1 (HIGHLY PARALLEL):**
 Can work on **6 phases simultaneously**:
-- **Phase 2**: Database (Critical Path)
+- **Phase 2**: PostgreSQL Database (Critical Path)
 - **Phase 4.1-4.2**: LLM setup, Intent Classifier (Independent)
 - **Phase 5.1-5.2.1**: MCP Client, GitHub Tools (Independent)
 - **Phase 6**: All rate limiters (Independent)
@@ -1518,13 +1519,13 @@ Can work on **2 tracks simultaneously**:
 - Both: Converge on Phases 4-5 integration
 
 **3-4 Developers**:
-- Dev 1: Phases 1→2→3 (Database & Telegram Bot)
+- Dev 1: Phases 1→2→3 (PostgreSQL Database & Telegram Bot)
 - Dev 2: Phases 4.1-4.2→4.3-4.4 (AI Engine)
 - Dev 3: Phases 5.1-5.2→complete (GitHub Integration)
 - Dev 4: Phases 6, 7, 8 (Rate Limiting, Security, Monitoring)
 
 **5+ Developers**:
-- Dev 1: Phases 1→2 (Setup & Database)
+- Dev 1: Phases 1→2 (Setup & PostgreSQL Database)
 - Dev 2: Phase 3 (Telegram Bot)
 - Dev 3: Phase 4 (AI Engine complete)
 - Dev 4: Phase 5 (GitHub Integration complete)
@@ -1574,5 +1575,5 @@ Can work on **2 tracks simultaneously**:
 ---
 
 **Last Updated**: 2025-11-18
-**Version**: 2.1
-**Status**: Restructured with tests integrated alongside implementation (TDD approach) + Detailed parallel dependency analysis
+**Version**: 2.2
+**Status**: Updated to reflect PostgreSQL migration (replacing Supabase) and Node.js 22 as per latest PRD.md changes
