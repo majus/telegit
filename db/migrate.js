@@ -7,25 +7,20 @@ import pg from 'pg';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import { getConfig } from '../config/env.js';
 
 const { Pool } = pg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Get database configuration
+const config = getConfig();
+
 // PostgreSQL connection configuration
 const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-  database: process.env.POSTGRES_DB || 'telegit',
-  user: process.env.POSTGRES_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD,
-  max: 5,
-  idleTimeoutMillis: 30000,
+  ...config.database,
+  max: 5, // Lower connection limit for migrations
   connectionTimeoutMillis: 5000,
 });
 

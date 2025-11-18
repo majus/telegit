@@ -2,53 +2,106 @@
  * Database schema types
  */
 
-export interface TelegramMessage {
+/**
+ * Group configuration with encrypted GitHub credentials
+ */
+export interface GroupConfig {
+  telegramGroupId: number;
+  githubRepo: string;
+  githubToken: string; // Decrypted token (encrypted in DB)
+  managerUserId: number;
+  settings: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Database row for group_configs table
+ */
+export interface GroupConfigRow {
+  telegram_group_id: number;
+  github_repo: string;
+  encrypted_github_token: string;
+  manager_user_id: number;
+  settings: Record<string, any>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Operation tracking
+ */
+export interface Operation {
   id: string; // UUID
+  telegramGroupId: number;
+  telegramMessageId: number;
+  operationType: 'create_bug' | 'create_task' | 'create_idea' | 'update_issue' | 'search_issues';
+  githubIssueUrl: string | null;
+  operationData: Record<string, any>;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'undone';
+  createdAt: Date;
+}
+
+/**
+ * Database row for operations table
+ */
+export interface OperationRow {
+  id: string;
+  telegram_group_id: number;
   telegram_message_id: number;
-  chat_id: number;
-  user_id: number;
-  username?: string;
-  first_name?: string;
-  last_name?: string;
-  message_text: string;
-  message_date: Date;
-  reply_to_message_id?: number;
+  operation_type: string;
+  github_issue_url: string | null;
+  operation_data: Record<string, any>;
+  status: string;
   created_at: Date;
-  updated_at: Date;
 }
 
-export interface GitHubIssue {
+/**
+ * Operation feedback tracking
+ */
+export interface OperationFeedback {
   id: string; // UUID
-  telegram_message_id: string; // FK to telegram_messages.id
-  github_issue_number: number;
-  github_issue_url: string;
-  issue_title: string;
-  issue_body: string;
-  issue_state: 'open' | 'closed';
-  labels?: string[]; // JSON array
-  created_at: Date;
-  updated_at: Date;
-  synced_at: Date;
+  operationId: string;
+  feedbackMessageId: number;
+  scheduledDeletion: Date;
+  dismissed: boolean;
+  createdAt: Date;
 }
 
-export interface BotState {
-  id: string; // UUID
-  chat_id: number;
-  state_key: string;
-  state_value: Record<string, any>; // JSON object
+/**
+ * Database row for operation_feedback table
+ */
+export interface OperationFeedbackRow {
+  id: string;
+  operation_id: string;
+  feedback_message_id: number;
+  scheduled_deletion: Date;
+  dismissed: boolean;
   created_at: Date;
-  updated_at: Date;
-  expires_at?: Date;
 }
 
-export interface MessageClassification {
+/**
+ * Conversation context caching
+ */
+export interface ConversationContext {
   id: string; // UUID
-  telegram_message_id: string; // FK to telegram_messages.id
-  classification: 'issue' | 'bug' | 'idea' | 'question' | 'ignore';
-  confidence: number; // 0.0 to 1.0
-  reasoning?: string;
-  labels?: string[]; // Suggested labels
-  created_at: Date;
+  telegramGroupId: number;
+  threadRootMessageId: number;
+  messagesChain: any[];
+  cachedAt: Date;
+  expiresAt: Date;
+}
+
+/**
+ * Database row for conversation_context table
+ */
+export interface ConversationContextRow {
+  id: string;
+  telegram_group_id: number;
+  thread_root_message_id: number;
+  messages_chain: any[];
+  cached_at: Date;
+  expires_at: Date;
 }
 
 // Database query result types

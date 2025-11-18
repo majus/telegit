@@ -4,27 +4,18 @@
  */
 
 import pg from 'pg';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import { getConfig } from '../../config/env.js';
 
 const { Pool } = pg;
+
+// Get database configuration
+const config = getConfig();
 
 /**
  * PostgreSQL connection pool
  * Configured with max 20 connections as per PRD requirements
  */
-export const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-  database: process.env.POSTGRES_DB || 'telegit',
-  user: process.env.POSTGRES_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD,
-  max: 20, // Maximum connection pool size (as per PRD)
-  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-  connectionTimeoutMillis: 2000, // Fail fast if connection takes too long
-});
+export const pool = new Pool(config.database);
 
 /**
  * Test database connection
@@ -42,11 +33,19 @@ export async function testConnection() {
   }
 }
 
+// Store interval ID for cleanup
+let statsIntervalId = null;
+
 /**
  * Close all database connections
  * Should be called when shutting down the application
  */
 export async function closePool() {
+  // Clear stats interval if running
+  if (statsIntervalId) {
+    clearInterval(statsIntervalId);
+    statsIntervalId = null;
+  }
   await pool.end();
 }
 
@@ -84,21 +83,29 @@ export async function getClient() {
   return await pool.connect();
 }
 
-// Handle unexpected errors
+// Handle unexpected errors - log and attempt recovery instead of crashing
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('Unexpected error on idle client:', err);
+  console.error('Pool will attempt to recover. If errors persist, check database connection.');
+
+  // Optionally emit an event for monitoring systems to catch
+  if (process.listenerCount('databaseError') > 0) {
+    process.emit('databaseError', err);
+  }
 });
 
 // Log pool statistics periodically in development
-if (process.env.NODE_ENV === 'development') {
-  setInterval(() => {
+if (config.app.nodeEnv === 'development') {
+  statsIntervalId = setInterval(() => {
     console.log('Pool stats:', {
       total: pool.totalCount,
       idle: pool.idleCount,
       waiting: pool.waitingCount,
     });
   }, 60000); // Every minute
+
+  // Prevent interval from keeping process alive
+  statsIntervalId.unref();
 }
 
 export default pool;

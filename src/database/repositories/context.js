@@ -36,6 +36,11 @@ export class ConversationContextRepository {
         throw new Error('messagesChain must be an array');
       }
 
+      // Validate TTL bounds
+      if (typeof ttlMinutes !== 'number' || ttlMinutes < 1 || ttlMinutes > 10080) {
+        throw new Error('ttlMinutes must be a number between 1 and 10080 (7 days)');
+      }
+
       // Calculate expiration time
       const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
@@ -261,6 +266,11 @@ export class ConversationContextRepository {
    */
   async updateTTL(groupId, threadRootMessageId, ttlMinutes) {
     try {
+      // Validate TTL bounds
+      if (typeof ttlMinutes !== 'number' || ttlMinutes < 1 || ttlMinutes > 10080) {
+        throw new Error('ttlMinutes must be a number between 1 and 10080 (7 days)');
+      }
+
       const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
       const result = await query(

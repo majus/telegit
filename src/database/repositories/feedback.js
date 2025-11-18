@@ -269,9 +269,16 @@ export class FeedbackRepository {
    */
   async cleanupOldFeedback(daysOld = 30) {
     try {
+      // Input validation
+      if (typeof daysOld !== 'number' || daysOld < 1 || daysOld > 3650) {
+        throw new Error('daysOld must be a number between 1 and 3650 (10 years)');
+      }
+
+      // Use parameterized query to prevent SQL injection
       const result = await query(
         `DELETE FROM operation_feedback
-         WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '${daysOld} days'`
+         WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '1 day' * $1`,
+        [daysOld]
       );
 
       return result.rowCount;

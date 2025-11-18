@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS operations (
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_operations_group_id ON operations(telegram_group_id);
 CREATE INDEX IF NOT EXISTS idx_operations_message_id ON operations(telegram_message_id);
+CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status);
 CREATE INDEX IF NOT EXISTS idx_operations_created_at ON operations(created_at DESC);
 
 -- Table: operation_feedback

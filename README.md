@@ -107,36 +107,6 @@ The bot securely stores the encrypted PAT (using AES-256-GCM encryption) and ass
 - Documented examples of expected behavior
 - Performance baselines for optimization
 
-## Development Status
-
-TeleGit is currently under active development. Here's the current implementation status:
-
-### ✓ Phase 2: Database & Data Layer (Complete)
-
-The foundation for data persistence has been implemented:
-
-- **PostgreSQL Database Schema**: Full schema with tables for group configs, operations, feedback messages, and conversation context
-- **Data Access Repositories**: Four repositories implementing CRUD operations with proper error handling
-- **Encryption**: AES-256-GCM encryption for GitHub Personal Access Tokens with tamper detection
-- **Migration System**: Database migration runner with version control
-- **Comprehensive Testing**: Unit tests for all repositories and encryption utilities (>80% coverage)
-- **Connection Pooling**: Configured with max 20 connections as per architecture requirements
-
-See [CLAUDE.md](./CLAUDE.md) for detailed implementation information.
-
-### 🚧 In Progress
-
-- Phase 3: Telegram Bot Service
-- Phase 4: AI Processing Engine
-- Phase 5: GitHub MCP Integration
-
-### 📋 Planned
-
-- Phase 6: Rate Limiting & Queue Management
-- Phase 7: Security & Access Control
-- Phase 8: Monitoring & Observability
-- Phase 9: Deployment & Infrastructure
-
 ## Future Plans
 
 The bot is designed with extensibility in mind. It should later be possible to use other targets for task management in addition to GitHub, so the GitHub integration must be implemented as a pluggable module with well-defined, sufficiently generic API which is easy to replicate for other potential targets (ClickUp, Jira, Todoist, etc).
