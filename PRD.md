@@ -48,8 +48,8 @@ graph TB
     subgraph "Application Layer"
         TB[Telegram Bot<br/>Telegraf]
         MQ[Message Queue<br/>Bottleneck]
-        AI[AI Processor<br/>LangChain + LangGraph]
-        GH[GitHub Integration<br/>MCP Server]
+        AI[AI Processor<br/>LangChain + LangGraph<br/>with GitHub MCP Client]
+        GH[GitHub MCP Server]
     end
     
     subgraph "Data Layer"
@@ -60,7 +60,7 @@ graph TB
     subgraph "External Services"
         TAPI[Telegram API]
         LLMAPI[LLM API<br/>OpenAI/Anthropic]
-        GHAPI[GitHub API]
+        GHAPI[GitHub MCP Server]
     end
     
     U1 & U2 & U3 --> TG
@@ -73,7 +73,6 @@ graph TB
     GH <--> GHAPI
     TB <--> SB
     AI <--> SB
-    GH <--> SB
     AI <--> CACHE
 ```
 
@@ -92,20 +91,68 @@ sequenceDiagram
     
     User->>Telegram: Send message with #tag/@mention
     Telegram->>Bot: Webhook/Polling
-    Bot->>Bot: Validate trigger conditions
-    Bot->>Telegram: React with 👀 (Analyzing)
-    Bot->>Queue: Enqueue processing job
-    Queue->>AI: Process message (rate limited)
-    AI->>AI: Extract intent & classify
-    AI->>Telegram: Update reaction to 🤔 (Processing)
-    AI->>MCP: Execute GitHub operation
-    MCP->>GitHub: API call (create/update issue)
-    GitHub-->>MCP: Response
-    MCP-->>AI: Operation result
-    AI->>Supabase: Store operation record
-    AI->>Telegram: Final reaction (👾/🫡/🦄/😵‍💫)
-    AI->>Telegram: Post feedback message
-    Bot->>Bot: Schedule message deletion (10 min)
+    Bot->>Supabase: Check GitHub auth for chat
+    alt No GitHub authentication
+        Bot->>User: Trigger PAT setup workflow (see Auth Flow diagram)
+        Note over Bot,User: Authentication must be completed first
+    else GitHub authentication exists
+        Bot->>Bot: Validate trigger conditions
+        Bot->>Telegram: React with 👀 (Analyzing)
+        Bot->>Queue: Enqueue processing job
+        Queue->>AI: Process message (rate limited)
+        AI->>Supabase: Get GitHub auth for chat
+        AI->>AI: Configure GitHub MCP client with PAT
+        AI->>AI: Extract intent & classify
+        AI->>Telegram: Update reaction to 🤔 (Processing)
+        AI->>MCP: Execute GitHub operation
+        MCP->>GitHub: API call (create/update issue)
+        GitHub-->>MCP: Response
+        MCP-->>AI: Operation result
+        AI->>Supabase: Store operation record
+        AI->>Telegram: Final reaction (👾/🫡/🦄/😵‍💫)
+        AI->>Telegram: Post feedback message
+        Bot->>Bot: Schedule message deletion (10 min)
+    end
+```
+
+### GitHub Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Telegram
+    participant Bot
+    participant Supabase
+    participant GitHub
+
+    User->>Telegram: Send message in chat with #tag/@mention
+    Telegram->>Bot: Webhook/Polling
+    Bot->>Supabase: Check GitHub auth for chat
+    Supabase-->>Bot: No authentication found
+
+    Bot->>Telegram: Post auth required message in chat
+    Bot->>User: Send DM with PAT setup instructions
+    Note over Bot,User: Private chat for secure PAT exchange
+
+    User->>Bot: Send /configure command in DM
+    Bot->>User: Request GitHub PAT
+    User->>Bot: Provides PAT + repository
+
+    Bot->>Bot: Validate PAT format
+    Bot->>GitHub: Test PAT & check permissions
+    GitHub-->>Bot: Validation response
+
+    alt Validation successful
+        Bot->>Bot: Encrypt PAT (AES-256-GCM)
+        Bot->>Supabase: Store encrypted PAT + repo for chat
+        Bot->>User: Configuration successful
+        Bot->>Telegram: Post success message in chat
+        Note over Bot,Telegram: Bot ready to process messages
+    else Validation failed
+        Bot->>User: Error message with instructions
+        Bot->>User: Request corrected PAT
+        Note over Bot,User: Loop until valid or cancelled
+    end
 ```
 
 ## Core Components
@@ -233,54 +280,55 @@ const INTENT_SCHEMA = {
 ### 3. GitHub MCP Integration (`/src/integrations/github`)
 
 **Responsibilities:**
-- MCP server communication over HTTP
+- MCP server communication via LangChain MCP adapter
 - Tool invocation and response handling
 - Image attachment processing
 - Error handling and retries
 
 **Key Files:**
 ```javascript
-// mcp-client.js - MCP HTTP client
-import { MCPClient } from '@modelcontextprotocol/sdk';
+// mcp-adapter.js - LangChain MCP adapter setup
+import { wrapMCPServer } from '@langchain/mcp-adapters';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 
-export class GitHubMCPClient {
-  constructor(config) {
-    this.client = new MCPClient({
-      transport: 'http',
-      endpoint: config.mcpEndpoint,
-      auth: { token: config.githubToken }
-    });
-  }
-  
-  async createIssue(repo, data) {
-    return this.client.callTool('github_create_issue', {
-      repository: repo,
-      title: data.title,
-      body: this.processBody(data),
-      labels: data.labels,
-      assignees: data.assignees
-    });
-  }
-  
-  processBody(data) {
-    // Convert Telegram image URLs to GitHub CDN
-    return data.body.replace(
-      /https:\/\/api\.telegram\.org\/file\/bot[^\/]+\/(.+)/g,
-      (match, path) => this.uploadToGitHub(path)
-    );
-  }
+export async function createGitHubMCPTools(config) {
+  // Create MCP client with SSE transport
+  const transport = new SSEClientTransport(
+    new URL(config.mcpEndpoint)
+  );
+
+  const client = new Client({
+    name: 'telegit-client',
+    version: '1.0.0'
+  }, {
+    capabilities: {}
+  });
+
+  await client.connect(transport);
+
+  // Wrap MCP server as LangChain tools using official adapter
+  const tools = await wrapMCPServer({
+    client,
+    // Optional: filter specific tools
+    includeTools: [
+      'github_create_issue',
+      'github_update_issue',
+      'github_search_issues'
+    ]
+  });
+
+  return tools;
 }
 
-// tools.js - LangChain tool definitions
-export const githubTools = [
-  {
-    name: 'create_github_issue',
-    description: 'Creates a new GitHub issue',
-    schema: CREATE_ISSUE_SCHEMA,
-    func: async (input) => mcpClient.createIssue(input)
-  },
-  // ... other tools
-];
+// image-processor.js - Telegram image processing
+export function processBodyWithImages(data) {
+  // Convert Telegram image URLs to GitHub CDN
+  return data.body.replace(
+    /https:\/\/api\.telegram\.org\/file\/bot[^\/]+\/(.+)/g,
+    (match, path) => uploadToGitHub(path)
+  );
+}
 ```
 
 ### 4. Rate Limiting Queue (`/src/queue`)
@@ -879,10 +927,184 @@ autoscaling:
 domains:
   - domain: telegit.yourdomain.com
     ssl: true
-    
+
 monitoring:
   enabled: true
   metrics_path: /metrics
+```
+
+### Kubernetes Deployment
+
+```yaml
+# k8s/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telegit
+  labels:
+    app: telegit
+---
+# k8s/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegit-config
+  namespace: telegit
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  PORT: "3000"
+---
+# k8s/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: telegit-secrets
+  namespace: telegit
+type: Opaque
+stringData:
+  TELEGRAM_BOT_TOKEN: "" # Set via kubectl or external secrets operator
+  SUPABASE_URL: ""
+  SUPABASE_KEY: ""
+  LLM_API_KEY: ""
+  ENCRYPTION_KEY: ""
+  TELEGRAM_WEBHOOK_SECRET: ""
+---
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegit
+  namespace: telegit
+  labels:
+    app: telegit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: telegit
+  template:
+    metadata:
+      labels:
+        app: telegit
+    spec:
+      containers:
+      - name: telegit
+        image: telegit:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: telegit-config
+        - secretRef:
+            name: telegit-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+---
+# k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: telegit
+  namespace: telegit
+  labels:
+    app: telegit
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: telegit
+---
+# k8s/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: telegit
+  namespace: telegit
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - telegit.yourdomain.com
+    secretName: telegit-tls
+  rules:
+  - host: telegit.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: telegit
+            port:
+              number: 80
+---
+# k8s/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: telegit
+  namespace: telegit
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: telegit
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# k8s/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: telegit
+  namespace: telegit
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: telegit
 ```
 
 ### Environment Configuration
