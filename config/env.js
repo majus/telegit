@@ -18,12 +18,11 @@ const envSchema = z.object({
   // GitHub Configuration
   GITHUB_MCP_SERVER_URL: z.string().url().optional().default('http://localhost:3000/mcp'),
 
-  // Database Configuration (support both DATABASE_URL and individual POSTGRES_* variables)
-  DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL').optional(),
-  POSTGRES_HOST: z.string().optional(),
-  POSTGRES_PORT: z.string().optional(),
-  POSTGRES_DB: z.string().optional(),
-  POSTGRES_USER: z.string().optional(),
+  // Database Configuration
+  POSTGRES_HOST: z.string().optional().default('localhost'),
+  POSTGRES_PORT: z.string().optional().default('5432'),
+  POSTGRES_DB: z.string().optional().default('telegit'),
+  POSTGRES_USER: z.string().optional().default('postgres'),
   POSTGRES_PASSWORD: z.string().optional(),
 
   // Security Configuration
@@ -42,35 +41,6 @@ const envSchema = z.object({
 });
 
 /**
- * Parse DATABASE_URL into connection parameters
- * @param {string} url - Database URL
- * @returns {Object|null} Parsed connection parameters or null if invalid
- */
-function parseDatabaseUrl(url) {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-
-    if (parsed.protocol !== 'postgresql:' && parsed.protocol !== 'postgres:') {
-      console.warn('DATABASE_URL must use postgresql:// or postgres:// protocol');
-      return null;
-    }
-
-    return {
-      host: parsed.hostname,
-      port: parsed.port ? parseInt(parsed.port, 10) : 5432,
-      database: parsed.pathname.slice(1), // Remove leading slash
-      user: parsed.username,
-      password: parsed.password,
-    };
-  } catch (error) {
-    console.error('Failed to parse DATABASE_URL:', error.message);
-    return null;
-  }
-}
-
-/**
  * Validates and parses environment variables
  * @returns {import('../src/types/config.js').ParsedConfig} Parsed configuration object
  * @throws {Error} If validation fails
@@ -80,25 +50,28 @@ export function loadConfig() {
     // Validate environment variables
     const env = envSchema.parse(process.env);
 
-    // Parse DATABASE_URL if provided
-    const urlConfig = parseDatabaseUrl(env.DATABASE_URL);
+    // Build database configuration from POSTGRES_* variables
+    const host = env.POSTGRES_HOST;
+    const port = parseInt(env.POSTGRES_PORT, 10);
+    const database = env.POSTGRES_DB;
+    const user = env.POSTGRES_USER;
+    const password = env.POSTGRES_PASSWORD;
 
-    // Individual POSTGRES_* variables take precedence over DATABASE_URL
+    // Build database URL
+    const credentials = password ? `${user}:${password}` : user;
+    const url = `postgresql://${credentials}@${host}:${port}/${database}`;
+
     const databaseConfig = {
-      host: env.POSTGRES_HOST || urlConfig?.host || 'localhost',
-      port: parseInt(env.POSTGRES_PORT || urlConfig?.port || '5432', 10),
-      database: env.POSTGRES_DB || urlConfig?.database || 'telegit',
-      user: env.POSTGRES_USER || urlConfig?.user || 'postgres',
-      password: env.POSTGRES_PASSWORD || urlConfig?.password,
+      host,
+      port,
+      database,
+      user,
+      password,
+      url,
       max: 20, // Connection pool size (as per PRD)
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     };
-
-    // Validate that we have database configuration from either source
-    if (!env.DATABASE_URL && !env.POSTGRES_HOST && !env.POSTGRES_USER) {
-      throw new Error('Either DATABASE_URL or POSTGRES_* variables must be set');
-    }
 
     // Parse and transform into structured config
     const config = {
