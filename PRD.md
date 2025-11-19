@@ -9,9 +9,10 @@ Version 1.0 | Date: November 2025
 5. [User Flows](#user-flows)
 6. [API Specifications](#api-specifications)
 7. [Security & Access Control](#security-access-control)
-8. [Testing Strategy](#testing-strategy)
-9. [Deployment & Infrastructure](#deployment-infrastructure)
-10. [Monitoring & Observability](#monitoring-observability)
+8. [Message Template System](#message-template-system)
+9. [Testing Strategy](#testing-strategy)
+10. [Deployment & Infrastructure](#deployment-infrastructure)
+11. [Monitoring & Observability](#monitoring-observability)
 
 ## Executive Summary
 
@@ -696,6 +697,408 @@ For security reasons, Telegram asset URLs contain bot tokens and cannot be passe
    - HTTPS only for webhooks
    - Webhook signature verification
    - IP whitelisting for production
+
+## Message Template System
+
+TeleGit uses **i18next** for message template management, providing clean code separation, easy message editing, and future i18n support. This is the industry-standard approach used by major frameworks and widely adopted in the Node.js ecosystem.
+
+### Architecture Overview
+
+#### Why i18next?
+
+i18next is the industry standard for JavaScript internationalization with:
+- **Wide Adoption**: Used by React, Vue.js, Angular, Express.js, and thousands of projects
+- **Mature Ecosystem**: 10+ years of development, extensive documentation
+- **Simple JSON Format**: Easy to edit without programming knowledge
+- **Rich Features**: Interpolation, pluralization, context, nesting
+- **Framework Agnostic**: Works with any JavaScript runtime
+- **Migration Path**: Start simple, add i18n features later without refactoring
+
+#### Design Principles
+
+1. **Separation of Concerns**: Messages separated from business logic
+2. **Easy Editing**: Non-developers can edit messages without touching code
+3. **Type Safety**: TypeScript definitions for message keys
+4. **Performance**: Messages loaded once at startup, cached in memory
+5. **Future-Proof**: i18n-ready architecture without complexity overhead
+
+### Directory Structure
+
+```
+locales/
+├── en/                          # Default language (English)
+│   ├── messages.json           # User-facing bot messages
+│   ├── errors.json             # Error messages
+│   ├── auth.json               # Authentication flow messages
+│   ├── feedback.json           # Feedback message templates
+│   ├── reactions.json          # Reaction emoji mappings
+│   └── prompts.json            # LLM prompt templates
+├── es/                          # Spanish (future)
+│   └── ...
+└── fr/                          # French (future)
+    └── ...
+```
+
+### Message File Structure
+
+#### messages.json - User-Facing Bot Messages
+
+```json
+{
+  "welcome": {
+    "group_added": "👋 Hi! I'm TeleGit. I'll help you create GitHub issues from your conversations.\n\nTo get started, the group admin should run /start",
+    "dm_instructions": "Let's set up GitHub integration for your group chat.\n\nI'll need two things:\n1. Your GitHub repository URL\n2. A Personal Access Token (PAT)\n\nSend me your repository URL (e.g., https://github.com/owner/repo)"
+  },
+  "status": {
+    "analyzing": "👀",
+    "processing": "🤔",
+    "bug_created": "👾",
+    "task_created": "🫡",
+    "idea_created": "🦄",
+    "error": "😵‍💫"
+  },
+  "feedback": {
+    "issue_created": "✅ Created {{issueType}} issue: {{issueTitle}}\n🔗 {{issueUrl}}\n\n💡 React with 👎 to undo, 👍 to dismiss this message",
+    "issue_updated": "✅ Updated issue #{{issueNumber}}: {{issueTitle}}\n🔗 {{issueUrl}}\n\n💡 React with 👎 to undo, 👍 to dismiss this message",
+    "operation_undone": "↩️ Undone! Issue #{{issueNumber}} has been closed.",
+    "feedback_dismissed": "👍 Got it!"
+  }
+}
+```
+
+#### errors.json - Error Messages
+
+```json
+{
+  "rate_limit": {
+    "telegram": "⏳ Taking a breather - too many requests. Will retry shortly.",
+    "github": "⏳ GitHub rate limit reached. Will retry in {{retryAfter}} seconds.",
+    "llm": "⏳ AI service is busy. Retrying..."
+  },
+  "auth": {
+    "no_config": "🔐 GitHub authentication required. An admin should run /start to configure.",
+    "invalid_pat": "❌ Invalid Personal Access Token. Please check and try again.\n\nYour PAT should:\n• Start with 'ghp_'\n• Have 'repo' scope enabled\n• Have access to the repository",
+    "invalid_repo": "❌ Can't access the GitHub repository.\n\nPlease check:\n• Repository URL is correct\n• PAT has access to this repository\n• Repository exists",
+    "permission_denied": "🚫 You don't have permission for this operation."
+  },
+  "processing": {
+    "intent_unclear": "😕 I didn't quite understand that. Could you rephrase?\n\nTip: Be specific about what you want to create or update.",
+    "network_error": "📡 Connection issues. Retrying...",
+    "timeout": "⏱️ That took too long. Please try again.",
+    "unknown_error": "😵‍💫 Something went wrong. The error has been logged.\n\nPlease try again or contact support if this persists."
+  },
+  "validation": {
+    "message_too_long": "📏 Message is too long (max {{maxLength}} characters). Please shorten it.",
+    "no_title": "❌ Couldn't extract a title from your message. Please be more specific.",
+    "invalid_assignee": "⚠️ User @{{username}} not found in the repository."
+  }
+}
+```
+
+#### auth.json - Authentication Flow Messages
+
+```json
+{
+  "setup": {
+    "start": "🚀 Let's set up GitHub integration!\n\nI'll guide you through the process in this private chat to keep your credentials secure.",
+    "request_repo": "📦 Please send me your GitHub repository URL.\n\nExample: https://github.com/owner/repo",
+    "request_pat": "🔑 Great! Now I need a GitHub Personal Access Token (PAT).\n\n**How to create a PAT:**\n1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)\n2. Click 'Generate new token (classic)'\n3. Give it a name like 'TeleGit Bot'\n4. Select scopes: `repo` (full control)\n5. Click 'Generate token'\n6. Copy the token (starts with ghp_)\n\n**Send me the token** (I'll encrypt it for storage)",
+    "validating": "🔍 Validating your credentials...",
+    "success": "✅ GitHub integration configured successfully!\n\nYour group can now create issues from Telegram messages.",
+    "success_group": "✅ GitHub integration is ready!\n\nMention me or use #hashtags to create issues."
+  },
+  "update": {
+    "start": "🔄 Update GitHub configuration?\n\nCurrent repository: {{currentRepo}}\n\nSend /cancel to abort or send a new repository URL to update."
+  }
+}
+```
+
+#### feedback.json - Feedback Message Templates
+
+```json
+{
+  "templates": {
+    "bug": "🐛 **Bug Report Created**\n\n**Issue**: {{title}}\n**URL**: {{url}}\n**Number**: #{{number}}\n{{#labels}}**Labels**: {{labels}}{{/labels}}\n\n_React 👎 to undo • React 👍 to dismiss_",
+    "task": "✅ **Task Created**\n\n**Issue**: {{title}}\n**URL**: {{url}}\n**Number**: #{{number}}\n{{#labels}}**Labels**: {{labels}}{{/labels}}\n\n_React 👎 to undo • React 👍 to dismiss_",
+    "idea": "💡 **Idea Logged**\n\n**Issue**: {{title}}\n**URL**: {{url}}\n**Number**: #{{number}}\n{{#labels}}**Labels**: {{labels}}{{/labels}}\n\n_React 👎 to undo • React 👍 to dismiss_",
+    "update": "🔄 **Issue Updated**\n\n**Issue**: {{title}}\n**URL**: {{url}}\n**Number**: #{{number}}\n\n**Changes**: {{changes}}\n\n_React 👎 to undo • React 👍 to dismiss_"
+  },
+  "metadata": {
+    "footer": "\n\n---\n_Created by TeleGit from Telegram message_",
+    "auto_delete_notice": "\n\n_This message will auto-delete in {{minutes}} minutes_"
+  }
+}
+```
+
+#### reactions.json - Reaction Emoji Configuration
+
+```json
+{
+  "status": {
+    "analyzing": {
+      "emoji": "👀",
+      "description": "Analyzing your message",
+      "stage": "initial"
+    },
+    "processing": {
+      "emoji": "🤔",
+      "description": "Processing with AI",
+      "stage": "processing"
+    },
+    "bug_created": {
+      "emoji": "👾",
+      "description": "Bug report created",
+      "stage": "success",
+      "issueType": "bug"
+    },
+    "task_created": {
+      "emoji": "🫡",
+      "description": "Task created",
+      "stage": "success",
+      "issueType": "task"
+    },
+    "idea_created": {
+      "emoji": "🦄",
+      "description": "Idea logged",
+      "stage": "success",
+      "issueType": "idea"
+    },
+    "error": {
+      "emoji": "😵‍💫",
+      "description": "Error occurred",
+      "stage": "error"
+    }
+  },
+  "controls": {
+    "undo": {
+      "emoji": "👎",
+      "description": "Undo the last action",
+      "action": "undo"
+    },
+    "dismiss": {
+      "emoji": "👍",
+      "description": "Dismiss this feedback message",
+      "action": "dismiss"
+    }
+  }
+}
+```
+
+#### prompts.json - LLM Prompt Templates
+
+```json
+{
+  "intent_classification": {
+    "system": "You are a message classifier for a Telegram bot that creates GitHub issues.\n\nYour task is to analyze incoming Telegram messages and classify them into one of these categories:\n- \"bug\": A report of something that is broken or not working as expected\n- \"issue\": A problem or concern that needs attention\n- \"idea\": A feature request or suggestion for improvement\n- \"question\": A question that needs an answer\n- \"ignore\": Casual conversation, greetings, or messages not relevant to issue tracking",
+    "user": "Analyze this message and respond with a JSON object containing:\n- classification: one of the categories above\n- confidence: a number between 0 and 1 indicating your confidence\n- reasoning: a brief explanation of why you chose this classification\n- suggestedTitle: a concise title for the issue (if applicable)\n- suggestedLabels: an array of relevant labels (if applicable)\n\nMessage to classify:\n{{messageText}}\n\n{{#conversationContext}}\nConversation context:\n{{conversationContext}}\n{{/conversationContext}}\n\nRespond only with the JSON object, no additional text."
+  },
+  "issue_formatting": {
+    "system": "You are helping format GitHub issue content from Telegram messages.",
+    "user": "Format this content into a clear GitHub issue body:\n\nOriginal message: {{messageText}}\n{{#conversationContext}}\nConversation thread:\n{{conversationContext}}\n{{/conversationContext}}\n\nProvide a well-structured markdown issue body with:\n- Clear problem description\n- Steps to reproduce (if applicable for bugs)\n- Expected vs actual behavior (if applicable)\n- Any relevant context from the conversation"
+  }
+}
+```
+
+### Implementation
+
+#### i18next Configuration
+
+```javascript
+// src/utils/i18n.js
+import i18next from 'i18next';
+import Backend from 'i18next-fs-backend';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+export async function initializeI18n() {
+  await i18next
+    .use(Backend)
+    .init({
+      lng: process.env.DEFAULT_LANGUAGE || 'en',
+      fallbackLng: 'en',
+      ns: ['messages', 'errors', 'auth', 'feedback', 'reactions', 'prompts'],
+      defaultNS: 'messages',
+      backend: {
+        loadPath: join(__dirname, '../../locales/{{lng}}/{{ns}}.json')
+      },
+      interpolation: {
+        escapeValue: false, // Not needed for Telegram
+      },
+      returnObjects: true, // Allow returning objects for complex structures
+    });
+
+  return i18next;
+}
+
+// Export singleton instance
+export const t = i18next.t.bind(i18next);
+export const i18n = i18next;
+```
+
+#### Type-Safe Message Keys
+
+```typescript
+// src/types/i18n.d.ts
+import 'i18next';
+
+// Declare custom type options for type-safe message keys
+declare module 'i18next' {
+  interface CustomTypeOptions {
+    returnNull: false;
+    defaultNS: 'messages';
+    resources: {
+      messages: {
+        'welcome.group_added': string;
+        'welcome.dm_instructions': string;
+        'status.analyzing': string;
+        'status.processing': string;
+        'feedback.issue_created': string;
+        // ... add all message keys for autocomplete
+      };
+      errors: {
+        'rate_limit.telegram': string;
+        'rate_limit.github': string;
+        'auth.no_config': string;
+        // ... add all error keys
+      };
+      auth: {
+        'setup.start': string;
+        'setup.request_repo': string;
+        // ... add all auth keys
+      };
+      feedback: {
+        'templates.bug': string;
+        'templates.task': string;
+        // ... add all feedback keys
+      };
+      reactions: object;
+      prompts: object;
+    };
+  }
+}
+```
+
+#### Usage Examples
+
+```javascript
+// In Telegram bot handlers
+import { t } from '../utils/i18n.js';
+
+// Simple message
+await ctx.reply(t('welcome.group_added'));
+
+// Message with interpolation
+await ctx.reply(t('feedback.issue_created', {
+  issueType: 'bug',
+  issueTitle: issue.title,
+  issueUrl: issue.html_url
+}));
+
+// Error message
+await ctx.reply(t('errors:auth.invalid_pat')); // Namespace prefix
+
+// Get reaction emoji
+const reactions = t('reactions:status', { returnObjects: true });
+await ctx.react(reactions.analyzing.emoji); // 👀
+
+// Get prompt template
+const prompt = t('prompts:intent_classification.user', {
+  messageText: message.text,
+  conversationContext: context.join('\n')
+});
+```
+
+#### Migration Strategy
+
+**Phase 1: Extract Existing Messages**
+1. Audit all hardcoded messages in codebase
+2. Create initial JSON files with current messages
+3. Generate TypeScript definitions
+
+**Phase 2: Replace Hardcoded Messages**
+1. Initialize i18next at application startup
+2. Replace hardcoded strings with `t()` calls
+3. Update tests to use message keys
+
+**Phase 3: Refinement**
+1. Review messages for clarity and consistency
+2. Add missing interpolation variables
+3. Optimize message organization
+
+**Phase 4: Future i18n (Post-MVP)**
+1. Add additional language files (es/, fr/, etc.)
+2. Implement language detection/selection
+3. Crowd-source translations
+
+### Benefits
+
+1. **Cleaner Code**: No hardcoded messages in business logic
+2. **Easy Editing**: Non-technical users can edit messages
+3. **Consistency**: Centralized message definitions prevent duplicates
+4. **Type Safety**: TypeScript autocomplete for message keys
+5. **Testability**: Mock messages easily in tests
+6. **i18n Ready**: Add languages without code changes
+7. **Version Control**: Track message changes separately from code
+8. **Context**: Group related messages together
+
+### Performance Considerations
+
+- **Startup**: Messages loaded once at initialization (~10-20ms)
+- **Runtime**: In-memory lookups (sub-millisecond)
+- **Memory**: ~100KB for all English messages
+- **No Impact**: Translation lookup is negligible overhead
+
+### Testing Messages
+
+```javascript
+// test/unit/messages/messages.test.js
+import { describe, it, expect, beforeAll } from 'vitest';
+import { initializeI18n, t } from '../../../src/utils/i18n.js';
+
+describe('Message Templates', () => {
+  beforeAll(async () => {
+    await initializeI18n();
+  });
+
+  it('should load all message namespaces', () => {
+    expect(t('welcome.group_added')).toBeDefined();
+    expect(t('errors:auth.no_config')).toBeDefined();
+    expect(t('auth:setup.start')).toBeDefined();
+  });
+
+  it('should interpolate variables correctly', () => {
+    const message = t('feedback.issue_created', {
+      issueType: 'bug',
+      issueTitle: 'Test Issue',
+      issueUrl: 'https://github.com/test/repo/issues/1'
+    });
+
+    expect(message).toContain('bug');
+    expect(message).toContain('Test Issue');
+    expect(message).toContain('https://github.com/test/repo/issues/1');
+  });
+
+  it('should have all required reaction emojis', () => {
+    const reactions = t('reactions:status', { returnObjects: true });
+
+    expect(reactions.analyzing.emoji).toBe('👀');
+    expect(reactions.processing.emoji).toBe('🤔');
+    expect(reactions.bug_created.emoji).toBe('👾');
+  });
+
+  it('should have prompts for LLM', () => {
+    const prompt = t('prompts:intent_classification.user', {
+      messageText: 'Test message'
+    });
+
+    expect(prompt).toContain('Test message');
+    expect(prompt).toContain('JSON');
+  });
+});
+```
 
 ## Testing Strategy
 

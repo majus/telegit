@@ -139,6 +139,216 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ---
 
+## Phase 1.5: Message Template System
+
+### 1.5.1 i18next Setup
+
+#### Task 1.5.1: Install i18next Dependencies
+- **Description**: Add i18next and related packages to project
+- **Complexity**: Low
+- **Dependencies**: Task 1.1.2
+- **Affected Files**: `package.json`
+- **Required Packages**:
+  - `i18next` - Core i18n library
+  - `i18next-fs-backend` - File system backend for Node.js
+- **Testing**: Dependencies install successfully
+- **Status**: ☐
+
+#### Task 1.5.2: Create Locales Directory Structure
+- **Description**: Create directory structure for message files
+- **Complexity**: Low
+- **Dependencies**: None
+- **Affected Components**:
+  - `/locales/` - Root locales directory
+  - `/locales/en/` - English messages (default)
+  - `/locales/en/messages.json` - User-facing messages
+  - `/locales/en/errors.json` - Error messages
+  - `/locales/en/auth.json` - Authentication flow messages
+  - `/locales/en/feedback.json` - Feedback templates
+  - `/locales/en/reactions.json` - Reaction emoji configurations
+  - `/locales/en/prompts.json` - LLM prompt templates
+- **Testing**: Directory structure exists
+- **Status**: ☐
+
+#### Task 1.5.3: Create Initial Message JSON Files
+- **Description**: Create initial message files with English content
+- **Complexity**: Medium
+- **Dependencies**: Task 1.5.2
+- **Affected Files**:
+  - `locales/en/messages.json`
+  - `locales/en/errors.json`
+  - `locales/en/auth.json`
+  - `locales/en/feedback.json`
+  - `locales/en/reactions.json`
+  - `locales/en/prompts.json`
+- **Content**: Based on PRD.md Message Template System section
+- **Testing**: JSON files are valid and loadable
+- **Status**: ☐
+
+#### Task 1.5.4: Implement i18next Initialization
+- **Description**: Create i18next configuration and initialization module
+- **Complexity**: Medium
+- **Dependencies**: Task 1.5.1, Task 1.5.3
+- **Affected Files**: `src/utils/i18n.js`
+- **Features**:
+  - Initialize i18next with fs-backend
+  - Configure namespaces (messages, errors, auth, feedback, reactions, prompts)
+  - Set default language and fallback
+  - Export `t()` function and i18n instance
+  - Handle initialization errors gracefully
+- **Testing**: i18next initializes successfully, loads all namespaces
+- **Status**: ☐
+
+#### Task 1.5.5: Create TypeScript Type Definitions
+- **Description**: Create TypeScript definitions for type-safe message keys
+- **Complexity**: Medium
+- **Dependencies**: Task 1.5.3, Task 1.5.4
+- **Affected Files**: `src/types/i18n.d.ts`
+- **Features**:
+  - Define CustomTypeOptions interface
+  - Map all message keys for autocomplete
+  - Type-safe namespace access
+  - Support for interpolation parameters
+- **Testing**: TypeScript provides autocomplete for message keys
+- **Status**: ☐
+
+### 1.5.2 Message Extraction & Migration
+
+#### Task 1.5.6: Audit Existing Hardcoded Messages
+- **Description**: Find all hardcoded messages in the codebase
+- **Complexity**: Low
+- **Dependencies**: None
+- **Affected Files**: Document findings in `docs/message-audit.md`
+- **Scope**:
+  - Search for string literals in source code
+  - Identify Telegram bot messages
+  - Identify error messages
+  - Identify LLM prompts
+  - Categorize by message type
+- **Testing**: All hardcoded messages documented
+- **Status**: ☐
+
+#### Task 1.5.7: Integrate i18n into Application Bootstrap
+- **Description**: Initialize i18n at application startup
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.4
+- **Affected Files**: `src/index.js` (main entry point)
+- **Logic**:
+  - Call `initializeI18n()` before starting bot
+  - Handle initialization errors
+  - Log successful initialization
+  - Ensure messages are loaded before processing requests
+- **Testing**: Application starts successfully with i18n loaded
+- **Status**: ☐
+
+#### Task 1.5.8: Create Message Helper Utilities
+- **Description**: Create utility functions for common message patterns
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.4
+- **Affected Files**: `src/utils/messages.js`
+- **Functions**:
+  - `getReactionEmoji(status)` - Get emoji for status
+  - `formatFeedback(type, data)` - Format feedback message
+  - `getErrorMessage(errorType, context)` - Get error message with context
+  - `getPrompt(promptType, variables)` - Get LLM prompt with variables
+- **Testing**: Utility functions return correct messages
+- **Status**: ☐
+
+### 1.5.3 Testing & Validation
+
+#### Task 1.5.9: Unit Tests - Message Loading
+- **Description**: Test message loading and retrieval
+- **Complexity**: Medium
+- **Dependencies**: Task 1.5.4
+- **Affected Files**: `test/unit/messages/i18n.test.js`
+- **Test Cases**:
+  - All namespaces load successfully
+  - Missing keys return fallback
+  - Interpolation works correctly
+  - Nested keys accessible
+  - returnObjects works for complex structures
+  - Invalid JSON files handled gracefully
+- **Testing**: All i18n unit tests pass
+- **Status**: ☐
+
+#### Task 1.5.10: Unit Tests - Message Content
+- **Description**: Validate message content and structure
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.3, Task 1.5.9
+- **Affected Files**: `test/unit/messages/content.test.js`
+- **Test Cases**:
+  - All required message keys exist
+  - All reaction emojis defined
+  - All error messages defined
+  - All prompt templates defined
+  - No duplicate message keys
+  - Interpolation variables documented
+  - Messages are non-empty
+- **Testing**: All message content tests pass
+- **Status**: ☐
+
+#### Task 1.5.11: Integration Tests - Message Usage
+- **Description**: Test message usage in application context
+- **Complexity**: Medium
+- **Dependencies**: Task 1.5.7, Task 1.5.8
+- **Affected Files**: `test/integration/messages.test.js`
+- **Test Cases**:
+  - Messages load at application startup
+  - Bot sends correct messages for different scenarios
+  - Error messages display correctly
+  - Reactions use correct emojis
+  - Prompts format correctly with variables
+  - Language fallback works
+- **Testing**: All message integration tests pass
+- **Status**: ☐
+
+#### Task 1.5.12: Create Message Validation Script
+- **Description**: Create script to validate message files
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.3
+- **Affected Files**: `scripts/validate-messages.js`
+- **Validation**:
+  - Valid JSON syntax
+  - No missing interpolation variables
+  - No unused messages
+  - Consistent emoji usage
+  - Prompt templates complete
+  - Cross-reference with type definitions
+- **Testing**: Script runs successfully, catches issues
+- **Status**: ☐
+
+### 1.5.4 Documentation
+
+#### Task 1.5.13: Document Message Template System
+- **Description**: Create comprehensive documentation for message templates
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.12
+- **Affected Files**: `docs/messages.md`
+- **Content**:
+  - How to add new messages
+  - How to update existing messages
+  - Interpolation syntax guide
+  - Namespace organization
+  - Type-safe message keys
+  - Testing message changes
+  - Adding new languages (future)
+- **Status**: ☐
+
+#### Task 1.5.14: Update CLAUDE.md with Message Guidelines
+- **Description**: Add message template guidelines to AI assistant guide
+- **Complexity**: Low
+- **Dependencies**: Task 1.5.13
+- **Affected Files**: `CLAUDE.md`
+- **Content**:
+  - Always use `t()` for messages
+  - Never hardcode user-facing strings
+  - Add new messages to appropriate JSON file
+  - Update TypeScript definitions when adding messages
+  - Run validation script before committing
+- **Status**: ☐
+
+---
+
 ## Phase 2: Database & Data Layer
 
 ### 2.1 Database Schema
@@ -1362,17 +1572,20 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ## Summary & Milestones
 
-### Milestone 1: Foundation (Phase 1)
+### Milestone 1: Foundation (Phase 1 + 1.5)
 **Target**: Week 1
 - Project scaffolded with full directory structure
 - Dependencies installed and configured
 - Test infrastructure ready (mocks, helpers)
+- Message template system implemented (i18next)
+- All messages extracted to JSON files
 - Development environment ready
 
-### Milestone 2: Parallel Development Kickoff (After Phase 1)
+### Milestone 2: Parallel Development Kickoff (After Phase 1 + 1.5)
 **Target**: Week 1-3 (PARALLEL WORK BEGINS)
+- **Foundation Complete**: Message template system ready for use
 - **Critical Path**: Database schema + Telegram bot foundation
-- **Parallel Track 1**: LLM setup + Intent classification
+- **Parallel Track 1**: LLM setup + Intent classification (uses message templates)
 - **Parallel Track 2**: MCP client + GitHub tools setup
 - **Parallel Track 3**: Rate limiters implemented
 - **Parallel Track 4**: Core security (encryption, whitelists, sanitization)
@@ -1434,6 +1647,9 @@ Phase 1 → Phase 2 → Phase 3 → Complete Integration → Deployment
 
 ```
 Phase 1: Project Setup & Test Infrastructure
+│
+▼
+Phase 1.5: Message Template System (i18next)
 ├─────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
 │                 │                  │                  │                  │                  │
 ▼                 ▼                  ▼                  ▼                  ▼                  ▼
@@ -1441,7 +1657,7 @@ Phase 2:          Phase 4.1-4.2:    Phase 5.1-5.2.1:  Phase 6:           Phase 7
 Database          LLM Setup &        MCP Client &      Rate Limiters     Security Core     Logging & Metrics
 + Tests           Intent Class.      GitHub Tools      (all 3)            (Encryption,      (Pino, Prometheus)
                   + Tests            + Basic Tests                        Whitelist,
-                                                                          Sanitization)
+                  (uses templates)                                        Sanitization)
                                                                           + Tests
 │
 ▼
@@ -1473,10 +1689,15 @@ Phase 11: Extensibility (Post-MVP)
 
 ### Parallelization Strategy
 
-**🚀 Stage 1 - After Phase 1 (HIGHLY PARALLEL):**
+**🎯 Stage 0.5 - After Phase 1 (QUICK SETUP):**
+- **Phase 1.5**: Message Template System (1-2 days, sequential)
+  - Sets up i18next and extracts all messages to JSON files
+  - Required before other phases that display messages to users
+
+**🚀 Stage 1 - After Phase 1.5 (HIGHLY PARALLEL):**
 Can work on **6 phases simultaneously**:
 - **Phase 2**: PostgreSQL Database (Critical Path)
-- **Phase 4.1-4.2**: LLM setup, Intent Classifier (Independent)
+- **Phase 4.1-4.2**: LLM setup, Intent Classifier (uses message templates)
 - **Phase 5.1-5.2.1**: MCP Client, GitHub Tools (Independent)
 - **Phase 6**: All rate limiters (Independent)
 - **Phase 7.1-7.3.1**: Encryption, Whitelists, Sanitization (Independent)
@@ -1543,10 +1764,10 @@ Can work on **2 tracks simultaneously**:
 
 ## Progress Tracking
 
-**Total Tasks**: 120+ (including integrated tests)
+**Total Tasks**: 134+ (including integrated tests and message template system)
 **Completed**: 8 (Phase 1 complete)
 **In Progress**: 0
-**Not Started**: 112+
+**Not Started**: 126+
 
 **Estimated Timeline**:
 - **Sequential Development**: 10-12 weeks to MVP
@@ -1579,6 +1800,6 @@ Can work on **2 tracks simultaneously**:
 
 ---
 
-**Last Updated**: 2025-11-18
-**Version**: 2.2
-**Status**: Updated to reflect PostgreSQL migration (replacing Supabase) and Node.js 22 as per latest PRD.md changes
+**Last Updated**: 2025-11-19
+**Version**: 2.3
+**Status**: Added Phase 1.5 - Message Template System using i18next for clean code separation and future i18n support
