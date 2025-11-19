@@ -94,11 +94,6 @@ ENCRYPTION_KEY="your-64-character-hex-string"
 
 **Input Sanitization:** All messages sanitized to prevent XSS/injection attacks. Removes script tags, dangerous HTML/attributes, and invalid URLs while preserving markdown.
 
-**Webhook Security:** Use HTTPS and Telegram's secret token for webhook endpoints:
-```bash
-TELEGRAM_WEBHOOK_SECRET="your-secret-token"
-```
-
 **Best Practices:** Use least-privilege GitHub PATs (`repo` scope), whitelist authorized groups/users, never commit `.env` files, rotate credentials periodically, and keep dependencies updated.
 
 ## GitHub Authentication
