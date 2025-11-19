@@ -1,0 +1,138 @@
+# Alertmanager Configuration for TeleGit
+# This file configures how alerts are routed and sent to receivers
+# Documentation: https://prometheus.io/docs/alerting/latest/configuration/
+
+global:
+  # Global configuration
+  resolve_timeout: 5m
+  # SMTP settings (configure if using email notifications)
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_from: 'alerts@example.com'
+  # smtp_auth_username: 'alerts@example.com'
+  # smtp_auth_password: '${SMTP_PASSWORD}'
+
+# Route tree for alerts
+route:
+  # Default receiver for all alerts
+  receiver: 'default-receiver'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'service', 'severity']
+
+  # How long to wait before sending the first notification
+  group_wait: 30s
+
+  # How long to wait before sending a notification about new alerts
+  group_interval: 5m
+
+  # How long to wait before re-sending a given alert
+  repeat_interval: 4h
+
+  # Child routes
+  routes:
+    # Critical alerts route
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 1h
+      continue: true
+
+    # Warning alerts route
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
+    # Database-specific alerts
+    - match:
+        alert_type: database
+      receiver: 'database-team-receiver'
+      continue: true
+
+    # Cost-related alerts
+    - match:
+        alert_type: cost
+      receiver: 'cost-monitoring-receiver'
+
+# Inhibition rules to prevent alert spam
+inhibit_rules:
+  # Don't send queue backlog warning if critical queue backlog is firing
+  - source_match:
+      alertname: 'CriticalQueueBacklog'
+    target_match:
+      alertname: 'QueueBacklog'
+    equal: ['service']
+
+  # Don't send performance alerts if service is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alert_type: 'performance|resources'
+    equal: ['service']
+
+# Receiver configurations
+receivers:
+  # Default receiver (can be configured with multiple notification channels)
+  - name: 'default-receiver'
+    # Example: Webhook receiver
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+    # Example: Email receiver (uncomment and configure)
+    # email_configs:
+    #   - to: 'team@example.com'
+    #     subject: '[TeleGit] {{ .GroupLabels.severity | toUpper }}: {{ .GroupLabels.alertname }}'
+    #     html: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  # Critical alerts receiver (higher priority channels)
+  - name: 'critical-receiver'
+    # Example: Webhook for critical alerts
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/critical'
+        send_resolved: true
+    # Example: PagerDuty integration (uncomment and configure)
+    # pagerduty_configs:
+    #   - service_key: '${PAGERDUTY_SERVICE_KEY}'
+    #     description: '{{ .GroupLabels.alertname }}: {{ .GroupLabels.severity }}'
+    # Example: Slack integration (uncomment and configure)
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#telegit-critical-alerts'
+    #     title: 'Critical Alert: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  # Warning alerts receiver
+  - name: 'warning-receiver'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/warning'
+        send_resolved: true
+    # Example: Slack integration for warnings
+    # slack_configs:
+    #   - api_url: '${SLACK_WEBHOOK_URL}'
+    #     channel: '#telegit-alerts'
+    #     title: 'Warning: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  # Database team receiver
+  - name: 'database-team-receiver'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/database'
+        send_resolved: true
+
+  # Cost monitoring receiver
+  - name: 'cost-monitoring-receiver'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/cost'
+        send_resolved: true
+    # Example: Email for cost alerts
+    # email_configs:
+    #   - to: 'billing@example.com'
+    #     subject: '[TeleGit] Cost Alert: {{ .GroupLabels.alertname }}'
+
+# Templates for notification messages
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

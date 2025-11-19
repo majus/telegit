@@ -13,6 +13,7 @@ import { IntentType } from './state-schema.js';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -133,7 +134,7 @@ export async function classifyIntent({ message, context = [], messageMetadata = 
     return validateAndEnrichResult(result, message, messageMetadata);
   } catch (error) {
     // Log error for debugging
-    console.error('Intent classification error:', error);
+    logger.error({ err: error, message: message.trim(), context: contextText }, 'Intent classification error');
 
     // Return unknown intent with error info
     return {

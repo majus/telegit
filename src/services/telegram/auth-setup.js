@@ -4,6 +4,7 @@
  */
 
 import { ConfigRepository } from '../../database/repositories/config.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Configuration constants
@@ -42,7 +43,7 @@ export function startSetupSession(userId, groupId) {
 
   setupSessions.set(userId, session);
 
-  console.log('Setup session started:', { userId, groupId });
+  logger.debug({ userId, groupId }, 'Setup session started');
   return session;
 }
 
@@ -89,7 +90,7 @@ export function updateSetupSession(userId, updates) {
  */
 export function endSetupSession(userId) {
   setupSessions.delete(userId);
-  console.log('Setup session ended:', { userId });
+  logger.debug({ userId }, 'Setup session ended');
 }
 
 /**
@@ -206,7 +207,7 @@ Please check your token and try again:`,
     await ctx.deleteMessage();
   } catch (error) {
     // PAT deletion failure is a CRITICAL security issue
-    console.error('SECURITY: Failed to delete PAT message:', error.message);
+    logger.error({ err: error }, 'SECURITY: Failed to delete PAT message');
     return {
       success: false,
       message: `❌ CRITICAL SECURITY ERROR: Could not delete your PAT message from chat history.
@@ -276,7 +277,7 @@ I'll automatically create and manage GitHub issues from your messages! 🎉`,
       groupId: session.groupId,
     };
   } catch (error) {
-    console.error('Failed to save configuration:', error.message);
+    logger.error({ err: error }, 'Failed to save configuration');
 
     return {
       success: false,
@@ -352,7 +353,7 @@ Just mention me or use hashtags to get started! 🚀`,
         { parse_mode: 'Markdown' }
       );
     } catch (error) {
-      console.error('Failed to notify group of completed setup:', error.message);
+      logger.error({ err: error }, 'Failed to notify group of completed setup');
     }
   }
 }
@@ -373,7 +374,7 @@ export function cleanupExpiredSessions() {
   }
 
   if (cleaned > 0) {
-    console.log(`Cleaned up ${cleaned} expired setup sessions`);
+    logger.info({ count: cleaned }, 'Cleaned up expired setup sessions');
   }
 
   return cleaned;

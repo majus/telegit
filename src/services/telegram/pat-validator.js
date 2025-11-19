@@ -3,6 +3,8 @@
  * Validates Personal Access Token format and permissions
  */
 
+import logger from '../../utils/logger.js';
+
 /**
  * Validate GitHub PAT format
  * @param {string} pat - Personal Access Token
@@ -64,7 +66,7 @@ export async function validatePAT(pat, repository, githubClient = null) {
 
   // If no GitHub client provided, we can only do format validation
   if (!githubClient) {
-    console.warn('No GitHub client provided, skipping API validation');
+    logger.warn('No GitHub client provided, skipping API validation');
     return {
       valid: true,
       warning: 'Only format validation performed. API validation skipped.',

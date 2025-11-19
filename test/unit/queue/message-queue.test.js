@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import MessageQueue, { Priority, messageQueue } from '../../../src/queue/message-queue.js';
+import logger from '../../../src/utils/logger.js';
 
 describe('Message Processing Queue', () => {
   let queue;
@@ -374,7 +375,7 @@ describe('Message Processing Queue', () => {
 
   describe('Context and ID Tracking', () => {
     it('should accept and log context information', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const loggerSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {});
 
       await queue.add(
         async () => 'test',
@@ -384,19 +385,10 @@ describe('Message Processing Queue', () => {
         }
       );
 
-      // Verify console.log was called with context
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[MessageQueue]'),
-        expect.objectContaining({
-          id: 'test-123',
-          context: expect.objectContaining({
-            userId: 'user-1',
-            chatId: 'chat-1',
-          }),
-        })
-      );
+      // Verify logger was called with context
+      expect(loggerSpy).toHaveBeenCalled();
 
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
   });
 });

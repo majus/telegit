@@ -16,6 +16,7 @@
  */
 
 import Bottleneck from 'bottleneck';
+import logger from '../utils/logger.js';
 
 /**
  * Get LLM rate limiter configuration from environment or use defaults
@@ -50,14 +51,14 @@ const llmLimiter = new Bottleneck(getLLMRateLimitConfig());
  * Event handlers for monitoring and debugging
  */
 llmLimiter.on('error', (error) => {
-  console.error('[LLMLimiter] Error:', error);
+  logger.error({ err: error }, '[LLMLimiter] Error');
 });
 
 llmLimiter.on('failed', async (error, jobInfo) => {
-  console.warn('[LLMLimiter] Job failed:', {
+  logger.warn({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[LLMLimiter] Job failed');
 
   // Retry on rate limit errors (HTTP 429)
   if (error.status === 429 || error.message?.includes('rate limit')) {
@@ -69,7 +70,7 @@ llmLimiter.on('failed', async (error, jobInfo) => {
 
     if (retryAfter) {
       const delay = parseInt(retryAfter, 10) * 1000;
-      console.log(`[LLMLimiter] Rate limited, retrying after ${retryAfter}s`);
+      logger.info({ retryAfter }, '[LLMLimiter] Rate limited, retrying');
       return delay;
     }
 
@@ -78,19 +79,19 @@ llmLimiter.on('failed', async (error, jobInfo) => {
     const delay = baseDelay * Math.pow(2, jobInfo.retryCount);
     const maxDelay = 60000; // Cap at 1 minute
     const actualDelay = Math.min(delay, maxDelay);
-    console.log(`[LLMLimiter] Rate limited, retrying after ${actualDelay / 1000}s`);
+    logger.info({ delaySeconds: actualDelay / 1000 }, '[LLMLimiter] Rate limited, retrying');
     return actualDelay;
   }
 
   // Retry on timeout errors
   if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
-    console.log('[LLMLimiter] Timeout error, retrying in 3s');
+    logger.info({ errorCode: error.code }, '[LLMLimiter] Timeout error, retrying in 3s');
     return 3000;
   }
 
   // Retry on network errors
   if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') {
-    console.log('[LLMLimiter] Network error, retrying in 2s');
+    logger.info({ errorCode: error.code }, '[LLMLimiter] Network error, retrying in 2s');
     return 2000;
   }
 
@@ -98,7 +99,7 @@ llmLimiter.on('failed', async (error, jobInfo) => {
   if (error.status >= 500 && error.status < 600) {
     const delay = 5000 * Math.pow(2, jobInfo.retryCount);
     const actualDelay = Math.min(delay, 30000); // Cap at 30 seconds
-    console.log(`[LLMLimiter] Server error, retrying in ${actualDelay / 1000}s`);
+    logger.info({ delaySeconds: actualDelay / 1000, status: error.status }, '[LLMLimiter] Server error, retrying');
     return actualDelay;
   }
 
@@ -106,15 +107,15 @@ llmLimiter.on('failed', async (error, jobInfo) => {
 });
 
 llmLimiter.on('retry', (error, jobInfo) => {
-  console.log('[LLMLimiter] Retrying job:', {
+  logger.info({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[LLMLimiter] Retrying job');
 });
 
 llmLimiter.on('depleted', (empty) => {
   if (empty) {
-    console.warn('[LLMLimiter] Reservoir depleted, requests will be queued');
+    logger.warn('[LLMLimiter] Reservoir depleted, requests will be queued');
   }
 });
 
@@ -168,7 +169,7 @@ export function updateLLMLimiterSettings(settings) {
 
   if (Object.keys(newConfig).length > 0) {
     llmLimiter.updateSettings(newConfig);
-    console.log('[LLMLimiter] Updated settings:', newConfig);
+    logger.info({ config: newConfig }, '[LLMLimiter] Updated settings');
   }
 }
 
@@ -180,7 +181,7 @@ export async function stopLLMLimiter() {
   await llmLimiter.stop({
     dropWaitingJobs: false, // Complete queued jobs
   });
-  console.log('[LLMLimiter] Stopped');
+  logger.info('[LLMLimiter] Stopped');
 }
 
 export default llmLimiter;

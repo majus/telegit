@@ -126,6 +126,46 @@ The bot securely stores the encrypted PAT (using AES-256-GCM encryption) and ass
 - Documented examples of expected behavior
 - Performance baselines for optimization
 
+## Monitoring & Observability
+
+TeleGit includes comprehensive monitoring and observability features for production deployments:
+
+**Structured Logging:**
+- JSON-formatted logs using Pino logger
+- Automatic redaction of sensitive data (tokens, passwords, API keys)
+- Configurable log levels (debug, info, warn, error, fatal)
+- Environment: `LOG_LEVEL=info` (default)
+
+**Metrics Collection:**
+- Prometheus-compatible metrics endpoint at `/api/metrics`
+- Message processing metrics (throughput, duration, errors)
+- External API metrics (GitHub, LLM token usage)
+- Database query performance
+- System resources (CPU, memory)
+
+**Health Checks:**
+- `/api/health` - Comprehensive health status of all dependencies
+- `/api/ready` - Kubernetes readiness probe
+- `/api/live` - Kubernetes liveness probe
+- Status levels: healthy, degraded, critical
+
+**Alerting:**
+- Pre-configured Prometheus alerting rules
+- Alerts for high error rates, queue backlogs, slow processing
+- Integration with Alertmanager for notifications
+- Configuration files in `config/monitoring/`
+
+**Quick Start:**
+```bash
+# View metrics
+curl http://localhost:3000/api/metrics
+
+# Check health
+curl http://localhost:3000/api/health
+```
+
+For detailed monitoring setup, deployment guides, and Grafana dashboards, see [`config/monitoring/README.md`](config/monitoring/README.md).
+
 ## Future Plans
 
 The bot is designed with extensibility in mind. It should later be possible to use other targets for task management in addition to GitHub, so the GitHub integration must be implemented as a pluggable module with well-defined, sufficiently generic API which is easy to replicate for other potential targets (ClickUp, Jira, Todoist, etc).

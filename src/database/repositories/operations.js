@@ -4,6 +4,7 @@
  */
 
 import { query, getClient } from '../db.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Repository for managing operations
@@ -70,7 +71,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       };
     } catch (error) {
-      console.error('Error creating operation:', error.message);
+      logger.error({ err: error, telegramGroupId, telegramMessageId, operationType }, 'Error creating operation');
       throw error;
     }
   }
@@ -123,7 +124,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       };
     } catch (error) {
-      console.error('Error updating operation status:', error.message);
+      logger.error({ err: error, operationId, status, metadata }, 'Error updating operation status');
       throw error;
     }
   }
@@ -161,7 +162,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       };
     } catch (error) {
-      console.error('Error updating GitHub issue URL:', error.message);
+      logger.error({ err: error, operationId, githubIssueUrl }, 'Error updating GitHub issue URL');
       throw error;
     }
   }
@@ -195,7 +196,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       };
     } catch (error) {
-      console.error('Error getting operation by ID:', error.message);
+      logger.error({ err: error, operationId }, 'Error getting operation by ID');
       throw error;
     }
   }
@@ -229,7 +230,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       };
     } catch (error) {
-      console.error('Error getting operation by message ID:', error.message);
+      logger.error({ err: error, messageId }, 'Error getting operation by message ID');
       throw error;
     }
   }
@@ -261,7 +262,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       }));
     } catch (error) {
-      console.error('Error getting group operation history:', error.message);
+      logger.error({ err: error, groupId, limit }, 'Error getting group operation history');
       throw error;
     }
   }
@@ -293,7 +294,7 @@ export class OperationsRepository {
         createdAt: operation.created_at,
       }));
     } catch (error) {
-      console.error('Error getting operations by status:', error.message);
+      logger.error({ err: error, status, limit }, 'Error getting operations by status');
       throw error;
     }
   }
@@ -312,7 +313,7 @@ export class OperationsRepository {
 
       return result.rowCount > 0;
     } catch (error) {
-      console.error('Error deleting operation:', error.message);
+      logger.error({ err: error, operationId }, 'Error deleting operation');
       throw error;
     }
   }

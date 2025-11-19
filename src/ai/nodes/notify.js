@@ -8,6 +8,7 @@
 import { setReaction } from '../../services/telegram/reactions.js';
 import { postFeedback } from '../../services/telegram/feedback.js';
 import { WorkflowStatus, IntentType } from '../state-schema.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Gets the appropriate emoji based on intent type
@@ -100,7 +101,11 @@ export async function notifyNode(state) {
       feedbackMessageId,
     };
   } catch (error) {
-    console.error('Error in notify node:', error);
+    logger.error({
+      err: error,
+      chatId: state.telegramMessage?.chat?.id,
+      messageId: state.telegramMessage?.message_id,
+    }, 'Error in notify node');
 
     // Notification failure shouldn't fail the whole workflow
     return {

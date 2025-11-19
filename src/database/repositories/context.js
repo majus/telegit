@@ -4,6 +4,7 @@
  */
 
 import { query, getClient } from '../db.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Repository for managing conversation context cache
@@ -72,7 +73,7 @@ export class ConversationContextRepository {
         expiresAt: context.expires_at,
       };
     } catch (error) {
-      console.error('Error caching context:', error.message);
+      logger.error({ err: error, telegramGroupId, threadRootMessageId }, 'Error caching context');
       throw error;
     }
   }
@@ -109,7 +110,7 @@ export class ConversationContextRepository {
         expiresAt: context.expires_at,
       };
     } catch (error) {
-      console.error('Error getting context:', error.message);
+      logger.error({ err: error, groupId, threadRootMessageId }, 'Error getting context');
       throw error;
     }
   }
@@ -132,7 +133,7 @@ export class ConversationContextRepository {
 
       return result.rows.length > 0;
     } catch (error) {
-      console.error('Error checking context validity:', error.message);
+      logger.error({ err: error, groupId, threadRootMessageId }, 'Error checking context validity');
       throw error;
     }
   }
@@ -150,12 +151,12 @@ export class ConversationContextRepository {
       );
 
       if (result.rowCount > 0) {
-        console.log(`Cleaned up ${result.rowCount} expired context entries`);
+        logger.info({ count: result.rowCount }, 'Cleaned up expired context entries');
       }
 
       return result.rowCount;
     } catch (error) {
-      console.error('Error invalidating expired contexts:', error.message);
+      logger.error({ err: error }, 'Error invalidating expired contexts');
       throw error;
     }
   }
@@ -177,7 +178,7 @@ export class ConversationContextRepository {
 
       return result.rowCount > 0;
     } catch (error) {
-      console.error('Error deleting context:', error.message);
+      logger.error({ err: error, groupId, threadRootMessageId }, 'Error deleting context');
       throw error;
     }
   }
@@ -197,7 +198,7 @@ export class ConversationContextRepository {
 
       return result.rowCount;
     } catch (error) {
-      console.error('Error deleting group contexts:', error.message);
+      logger.error({ err: error, groupId }, 'Error deleting group contexts');
       throw error;
     }
   }
@@ -225,7 +226,7 @@ export class ConversationContextRepository {
         expiresAt: context.expires_at,
       }));
     } catch (error) {
-      console.error('Error getting group contexts:', error.message);
+      logger.error({ err: error, groupId }, 'Error getting group contexts');
       throw error;
     }
   }
@@ -252,7 +253,7 @@ export class ConversationContextRepository {
         expired: parseInt(stats.expired, 10),
       };
     } catch (error) {
-      console.error('Error getting cache stats:', error.message);
+      logger.error({ err: error }, 'Error getting cache stats');
       throw error;
     }
   }
@@ -297,7 +298,7 @@ export class ConversationContextRepository {
         expiresAt: context.expires_at,
       };
     } catch (error) {
-      console.error('Error updating TTL:', error.message);
+      logger.error({ err: error, groupId, threadRootMessageId, ttlMinutes }, 'Error updating TTL');
       throw error;
     }
   }

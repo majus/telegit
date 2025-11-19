@@ -9,6 +9,7 @@ import { executeWorkflow, getWorkflowStats } from './workflow.js';
 import { createInitialState } from './state-schema.js';
 import { getGroupConfig } from '../database/repositories/config.js';
 import { getConversationContext } from '../services/telegram/thread-context.js';
+import logger from '../utils/logger.js';
 
 /**
  * Processes a Telegram message through the AI workflow
@@ -52,7 +53,7 @@ export async function processMessage(telegramMessage, options = {}) {
           telegramMessage.message_id
         );
       } catch (error) {
-        console.warn('Failed to gather conversation context:', error);
+        logger.warn({ err: error, chatId: telegramMessage.chat.id, messageId: telegramMessage.message_id }, 'Failed to gather conversation context');
         // Continue without context - not critical
       }
     }
@@ -68,14 +69,14 @@ export async function processMessage(telegramMessage, options = {}) {
     const stats = getWorkflowStats(result);
 
     // Log processing metrics
-    console.log('Message processing completed:', {
+    logger.info({
       chatId: groupId,
       messageId: telegramMessage.message_id,
       intent: stats.intent,
       confidence: stats.confidence,
       totalDuration: stats.totalDuration,
       success: stats.success,
-    });
+    }, 'Message processing completed');
 
     return {
       success: stats.success,
@@ -84,15 +85,11 @@ export async function processMessage(telegramMessage, options = {}) {
       processingTime: Date.now() - startTime,
     };
   } catch (error) {
-    console.error('Critical error in message processor:', error);
-
-    // Log error details
-    console.error({
-      error: error.message,
-      stack: error.stack,
+    logger.error({
+      err: error,
       chatId: telegramMessage?.chat?.id,
       messageId: telegramMessage?.message_id,
-    });
+    }, 'Critical error in message processor');
 
     throw error;
   }
@@ -171,7 +168,7 @@ async function testDatabaseConnection() {
     await query('SELECT 1');
     return true;
   } catch (error) {
-    console.error('Database health check failed:', error);
+    logger.error({ err: error }, 'Database health check failed');
     return false;
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import { query, getClient } from '../db.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Repository for managing feedback messages
@@ -56,7 +57,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       };
     } catch (error) {
-      console.error('Error creating feedback:', error.message);
+      logger.error({ err: error, operationId, chatId, feedbackMessageId }, 'Error creating feedback');
       throw error;
     }
   }
@@ -94,7 +95,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       };
     } catch (error) {
-      console.error('Error getting feedback by message ID:', error.message);
+      logger.error({ err: error, messageId }, 'Error getting feedback by message ID');
       throw error;
     }
   }
@@ -127,7 +128,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       };
     } catch (error) {
-      console.error('Error getting feedback by operation ID:', error.message);
+      logger.error({ err: error, operationId }, 'Error getting feedback by operation ID');
       throw error;
     }
   }
@@ -163,7 +164,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       };
     } catch (error) {
-      console.error('Error marking feedback as dismissed:', error.message);
+      logger.error({ err: error, messageId }, 'Error marking feedback as dismissed');
       throw error;
     }
   }
@@ -192,7 +193,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       }));
     } catch (error) {
-      console.error('Error getting scheduled deletions:', error.message);
+      logger.error({ err: error }, 'Error getting scheduled deletions');
       throw error;
     }
   }
@@ -219,7 +220,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       }));
     } catch (error) {
-      console.error('Error getting pending feedback:', error.message);
+      logger.error({ err: error }, 'Error getting pending feedback');
       throw error;
     }
   }
@@ -238,7 +239,7 @@ export class FeedbackRepository {
 
       return result.rowCount > 0;
     } catch (error) {
-      console.error('Error deleting feedback:', error.message);
+      logger.error({ err: error, messageId }, 'Error deleting feedback');
       throw error;
     }
   }
@@ -275,7 +276,7 @@ export class FeedbackRepository {
         createdAt: feedback.created_at,
       };
     } catch (error) {
-      console.error('Error updating scheduled deletion:', error.message);
+      logger.error({ err: error, messageId, newScheduledDeletion }, 'Error updating scheduled deletion');
       throw error;
     }
   }
@@ -302,7 +303,7 @@ export class FeedbackRepository {
 
       return result.rowCount;
     } catch (error) {
-      console.error('Error cleaning up old feedback:', error.message);
+      logger.error({ err: error, daysOld }, 'Error cleaning up old feedback');
       throw error;
     }
   }

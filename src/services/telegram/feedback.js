@@ -5,6 +5,7 @@
 
 import { getBot } from './bot.js';
 import { FeedbackRepository } from '../../database/repositories/feedback.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Telegraf} TelegrafBot
@@ -52,12 +53,12 @@ export async function postFeedback(chatId, replyToMessageId, message, operationI
     const feedbackRepo = new FeedbackRepository();
     await feedbackRepo.createFeedback({ operationId, chatId, feedbackMessageId, scheduledDeletion });
 
-    console.log('Feedback posted:', {
+    logger.debug({
       chatId,
       feedbackMessageId,
       operationId,
       scheduledDeletion,
-    });
+    }, 'Feedback posted');
 
     return {
       messageId: feedbackMessageId,
@@ -65,12 +66,12 @@ export async function postFeedback(chatId, replyToMessageId, message, operationI
       scheduledDeletion,
     };
   } catch (error) {
-    console.error('Failed to post feedback:', {
+    logger.error({
+      err: error,
       chatId,
       replyToMessageId,
       operationId,
-      error: error.message,
-    });
+    }, 'Failed to post feedback');
     throw error;
   }
 }
@@ -97,12 +98,12 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
     const feedbackRepo = new FeedbackRepository();
     await feedbackRepo.markDismissed(messageId);
 
-    console.log('Feedback message deleted:', { chatId, messageId });
+    logger.debug({ chatId, messageId }, 'Feedback message deleted');
     return true;
   } catch (error) {
     // Message might already be deleted or not exist
     if (error.response?.error_code === 400) {
-      console.log('Feedback message already deleted:', { chatId, messageId });
+      logger.debug({ chatId, messageId }, 'Feedback message already deleted');
 
       // Still mark as dismissed in database
       try {
@@ -110,17 +111,17 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
         await feedbackRepo.markDismissed(messageId);
       } catch (dbError) {
         // Non-fatal if already dismissed
-        console.log('Could not mark as dismissed (may already be dismissed):', dbError.message);
+        logger.debug({ err: dbError }, 'Could not mark as dismissed (may already be dismissed)');
       }
 
       return true;
     }
 
-    console.error('Failed to delete feedback message:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Failed to delete feedback message');
     return false;
   }
 }
@@ -142,11 +143,11 @@ export async function dismissFeedback(chatId, messageId, botInstance = null) {
     // Delete the message
     return await deleteFeedbackMessage(chatId, messageId, botInstance);
   } catch (error) {
-    console.error('Failed to dismiss feedback:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Failed to dismiss feedback');
     return false;
   }
 }
@@ -161,7 +162,7 @@ export async function processScheduledDeletions(botInstance = null) {
   const bot = botInstance || getBot();
 
   if (!bot) {
-    console.warn('Bot instance not initialized, skipping scheduled deletions');
+    logger.warn('Bot instance not initialized, skipping scheduled deletions');
     return { processed: 0, deleted: 0, errors: 0 };
   }
 
@@ -169,7 +170,7 @@ export async function processScheduledDeletions(botInstance = null) {
     const feedbackRepo = new FeedbackRepository();
     const scheduled = await feedbackRepo.getScheduledDeletions();
 
-    console.log(`Processing ${scheduled.length} scheduled deletions`);
+    logger.debug({ count: scheduled.length }, 'Processing scheduled deletions');
 
     let deleted = 0;
     let errors = 0;
@@ -188,20 +189,20 @@ export async function processScheduledDeletions(botInstance = null) {
           errors++;
         }
       } catch (error) {
-        console.error('Error deleting scheduled feedback:', {
+        logger.error({
+          err: error,
           feedbackId: feedback.id,
           messageId: feedback.feedbackMessageId,
-          error: error.message,
-        });
+        }, 'Error deleting scheduled feedback');
         errors++;
       }
     }
 
-    console.log('Scheduled deletions processed:', {
+    logger.info({
       total: scheduled.length,
       deleted,
       errors,
-    });
+    }, 'Scheduled deletions processed');
 
     return {
       processed: scheduled.length,
@@ -209,7 +210,7 @@ export async function processScheduledDeletions(botInstance = null) {
       errors,
     };
   } catch (error) {
-    console.error('Failed to process scheduled deletions:', error.message);
+    logger.error({ err: error }, 'Failed to process scheduled deletions');
     return {
       processed: 0,
       deleted: 0,
@@ -225,7 +226,7 @@ export async function processScheduledDeletions(botInstance = null) {
  * @returns {NodeJS.Timeout} Interval ID (can be used with clearInterval)
  */
 export function startDeletionScheduler(intervalMs = DELETION_CHECK_INTERVAL_MS, botInstance = null) {
-  console.log(`Starting deletion scheduler (interval: ${intervalMs}ms)`);
+  logger.info({ intervalMs }, 'Starting deletion scheduler');
 
   const intervalId = setInterval(async () => {
     await processScheduledDeletions(botInstance);
@@ -244,6 +245,6 @@ export function startDeletionScheduler(intervalMs = DELETION_CHECK_INTERVAL_MS, 
 export function stopDeletionScheduler(intervalId) {
   if (intervalId) {
     clearInterval(intervalId);
-    console.log('Deletion scheduler stopped');
+    logger.info('Deletion scheduler stopped');
   }
 }

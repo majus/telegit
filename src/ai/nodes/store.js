@@ -7,6 +7,7 @@
 
 import { createOperation } from '../../database/repositories/operations.js';
 import { WorkflowStatus } from '../state-schema.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Store node - records the operation in the database
@@ -47,7 +48,12 @@ export async function storeNode(state) {
       },
     };
   } catch (error) {
-    console.error('Error in store node:', error);
+    logger.error({
+      err: error,
+      chatId: state.telegramMessage?.chat?.id,
+      messageId: state.telegramMessage?.message_id,
+      operationType: state.githubOperation?.type,
+    }, 'Error in store node');
 
     // Don't fail the workflow if storage fails
     // Log the error and continue to notify

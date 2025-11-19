@@ -13,6 +13,7 @@ import { storeNode } from './nodes/store.js';
 import { notifyNode } from './nodes/notify.js';
 import { errorNode } from './nodes/error.js';
 import { getConfig } from '../../config/env.js';
+import logger from '../utils/logger.js';
 
 /**
  * Creates the LangGraph workflow
@@ -104,7 +105,11 @@ export async function executeWorkflow(initialState) {
     const result = await workflow.invoke(initialState);
     return result;
   } catch (error) {
-    console.error('Workflow execution error:', error);
+    logger.error({
+      err: error,
+      chatId: initialState.telegramMessage?.chat?.id,
+      messageId: initialState.telegramMessage?.message_id,
+    }, 'Workflow execution error');
 
     // Return error state
     return {

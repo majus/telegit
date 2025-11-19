@@ -13,6 +13,7 @@
  */
 
 import Bottleneck from 'bottleneck';
+import logger from '../utils/logger.js';
 
 /**
  * Message priority levels
@@ -66,17 +67,17 @@ class MessageQueue {
    */
   setupEventHandlers() {
     this.limiter.on('error', (error) => {
-      console.error('[MessageQueue] Limiter error:', error);
+      logger.error({ err: error }, '[MessageQueue] Limiter error');
     });
 
     this.limiter.on('failed', async (error, jobInfo) => {
       this.metrics.retried++;
 
-      console.warn('[MessageQueue] Job failed:', {
+      logger.warn({
         error: error.message,
         retryCount: jobInfo.retryCount,
         maxRetries: this.config.maxRetries,
-      });
+      }, '[MessageQueue] Job failed');
 
       // Check if we should retry
       if (jobInfo.retryCount < this.config.maxRetries) {
@@ -85,22 +86,26 @@ class MessageQueue {
         const jitter = Math.random() * 1000; // Add jitter to prevent thundering herd
         const actualDelay = delay + jitter;
 
-        console.log(`[MessageQueue] Retrying in ${Math.ceil(actualDelay / 1000)}s (attempt ${jobInfo.retryCount + 1}/${this.config.maxRetries})`);
+        logger.info({
+          retryDelaySeconds: Math.ceil(actualDelay / 1000),
+          attempt: jobInfo.retryCount + 1,
+          maxRetries: this.config.maxRetries,
+        }, '[MessageQueue] Retrying job');
         return actualDelay;
       }
 
       // Max retries reached
-      console.error('[MessageQueue] Max retries reached, giving up');
+      logger.error({ err: error }, '[MessageQueue] Max retries reached, giving up');
       this.metrics.failed++;
       return null; // Don't retry
     });
 
     this.limiter.on('retry', (error, jobInfo) => {
-      console.log('[MessageQueue] Retrying job:', {
+      logger.info({
         error: error.message,
         attempt: jobInfo.retryCount + 1,
         maxRetries: this.config.maxRetries,
-      });
+      }, '[MessageQueue] Retrying job');
     });
 
     this.limiter.on('done', (info) => {
@@ -135,18 +140,18 @@ class MessageQueue {
     const startTime = Date.now();
 
     try {
-      console.log('[MessageQueue] Adding job to queue:', {
+      logger.debug({
         id,
         priority,
         queueSize: this.getQueueSize(),
         context,
-      });
+      }, '[MessageQueue] Adding job to queue');
 
       // Schedule the job with priority
       const result = await this.limiter.schedule(
         { priority, id },
         async () => {
-          console.log('[MessageQueue] Processing job:', { id, context });
+          logger.debug({ id, context }, '[MessageQueue] Processing job');
           return await processor();
         }
       );
@@ -154,23 +159,23 @@ class MessageQueue {
       const processingTime = Date.now() - startTime;
       this.updateProcessingTimeMetrics(processingTime);
 
-      console.log('[MessageQueue] Job completed:', {
+      logger.info({
         id,
-        processingTime: `${processingTime}ms`,
+        processingTime,
         context,
-      });
+      }, '[MessageQueue] Job completed');
 
       return result;
     } catch (error) {
       const processingTime = Date.now() - startTime;
       this.updateProcessingTimeMetrics(processingTime);
 
-      console.error('[MessageQueue] Job failed permanently:', {
+      logger.error({
         id,
-        error: error.message,
-        processingTime: `${processingTime}ms`,
+        err: error,
+        processingTime,
         context,
-      });
+      }, '[MessageQueue] Job failed permanently');
 
       throw error;
     }
@@ -258,7 +263,7 @@ class MessageQueue {
 
     while (!this.isEmpty()) {
       if (Date.now() - startTime > timeout) {
-        console.warn('[MessageQueue] Timeout waiting for queue to empty');
+        logger.warn({ timeout }, '[MessageQueue] Timeout waiting for queue to empty');
         return false;
       }
 
@@ -281,22 +286,22 @@ class MessageQueue {
       timeout = 30000,
     } = options;
 
-    console.log('[MessageQueue] Stopping queue...', {
+    logger.info({
       queueSize: this.getQueueSize(),
       dropWaitingJobs,
-    });
+    }, '[MessageQueue] Stopping queue');
 
     if (!dropWaitingJobs) {
       // Wait for queue to empty
       const emptied = await this.waitForEmpty(timeout);
 
       if (!emptied) {
-        console.warn('[MessageQueue] Force stopping with pending jobs');
+        logger.warn({ queueSize: this.getQueueSize() }, '[MessageQueue] Force stopping with pending jobs');
       }
     }
 
     await this.limiter.stop({ dropWaitingJobs });
-    console.log('[MessageQueue] Stopped');
+    logger.info('[MessageQueue] Stopped');
   }
 
   /**

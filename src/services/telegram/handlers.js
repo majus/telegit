@@ -9,6 +9,7 @@ import { setAnalyzingReaction, setErrorReaction } from './reactions.js';
 import { gatherThreadContext } from './thread-context.js';
 import { postFeedback } from './feedback.js';
 import { OperationsRepository } from '../../database/repositories/operations.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Context} Context
@@ -38,19 +39,19 @@ export async function handleMessage(ctx, processMessageFn) {
       return;
     }
 
-    console.log('Processing triggered message:', {
+    logger.info({
       chatId,
       messageId,
       userId,
       botMentioned: filterResult.metadata.botMentioned,
       hashtags: filterResult.metadata.hashtags,
-    });
+    }, 'Processing triggered message');
 
     // Step 2: Check GitHub authentication
     const isAuthenticated = await isGroupAuthenticated(chatId);
 
     if (!isAuthenticated) {
-      console.log('Group not authenticated, sending setup instructions');
+      logger.info({ chatId }, 'Group not authenticated, sending setup instructions');
 
       // Send authentication required message
       await sendAuthRequiredMessage(ctx);
@@ -65,7 +66,7 @@ export async function handleMessage(ctx, processMessageFn) {
     try {
       threadContext = await gatherThreadContext(ctx);
     } catch (error) {
-      console.error('Failed to gather thread context:', error.message);
+      logger.error({ err: error }, 'Failed to gather thread context');
       // Non-fatal, continue with empty context
     }
 
@@ -85,21 +86,21 @@ export async function handleMessage(ctx, processMessageFn) {
       },
     });
 
-    console.log('Operation created:', {
+    logger.info({
       operationId: operation.id,
       chatId,
       messageId,
-    });
+    }, 'Operation created');
 
     // Step 6: Queue message for AI processing
     if (processMessageFn) {
       // Process in background (don't await)
       processMessageFn(ctx, operation.id, threadContext)
         .catch((error) => {
-          console.error('Message processing failed:', {
+          logger.error({
+            err: error,
             operationId: operation.id,
-            error: error.message,
-          });
+          }, 'Message processing failed');
 
           // Set error reaction
           setErrorReaction(chatId, messageId);
@@ -110,14 +111,14 @@ export async function handleMessage(ctx, processMessageFn) {
           });
         });
     } else {
-      console.warn('No message processor function provided');
+      logger.warn('No message processor function provided');
     }
   } catch (error) {
-    console.error('Message handler error:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Message handler error');
 
     // Set error reaction
     await setErrorReaction(chatId, messageId);
@@ -129,7 +130,7 @@ export async function handleMessage(ctx, processMessageFn) {
         { reply_to_message_id: messageId }
       );
     } catch (replyError) {
-      console.error('Failed to send error reply:', replyError.message);
+      logger.error({ err: replyError }, 'Failed to send error reply');
     }
   }
 }
@@ -177,10 +178,10 @@ Ready? Send me your repository URL to get started!`
       );
     } catch (dmError) {
       // User might not have started a conversation with the bot
-      console.log('Could not send DM to user (they may need to start the bot first)');
+      logger.debug({ err: dmError, userId }, 'Could not send DM to user (they may need to start the bot first)');
     }
   } catch (error) {
-    console.error('Failed to send auth required message:', error.message);
+    logger.error({ err: error }, 'Failed to send auth required message');
   }
 }
 

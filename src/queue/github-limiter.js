@@ -12,6 +12,7 @@
  */
 
 import Bottleneck from 'bottleneck';
+import logger from '../utils/logger.js';
 
 /**
  * GitHub API rate limiter configuration
@@ -35,14 +36,14 @@ const githubLimiter = new Bottleneck({
  * Event handlers for monitoring and debugging
  */
 githubLimiter.on('error', (error) => {
-  console.error('[GitHubLimiter] Error:', error);
+  logger.error({ err: error }, '[GitHubLimiter] Error');
 });
 
 githubLimiter.on('failed', async (error, jobInfo) => {
-  console.warn('[GitHubLimiter] Job failed:', {
+  logger.warn({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[GitHubLimiter] Job failed');
 
   // Retry on rate limit errors (HTTP 403 with rate limit or 429)
   if (error.status === 403 || error.status === 429) {
@@ -52,30 +53,30 @@ githubLimiter.on('failed', async (error, jobInfo) => {
 
     if (resetTime) {
       const delay = Math.max(0, resetTime * 1000 - Date.now());
-      console.log(`[GitHubLimiter] Rate limited, retrying after ${Math.ceil(delay / 1000)}s`);
+      logger.info({ delaySeconds: Math.ceil(delay / 1000) }, '[GitHubLimiter] Rate limited, retrying');
       return Math.min(delay, 60000); // Cap at 1 minute
     }
 
     if (retryAfter) {
       const delay = parseInt(retryAfter, 10) * 1000;
-      console.log(`[GitHubLimiter] Rate limited, retrying after ${retryAfter}s`);
+      logger.info({ retryAfter }, '[GitHubLimiter] Rate limited, retrying');
       return delay;
     }
 
     // Default retry after 60 seconds for rate limit
-    console.log('[GitHubLimiter] Rate limited, retrying after 60s');
+    logger.info('[GitHubLimiter] Rate limited, retrying after 60s');
     return 60000;
   }
 
   // Retry on network errors
   if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
-    console.log('[GitHubLimiter] Network error, retrying in 2s');
+    logger.info({ errorCode: error.code }, '[GitHubLimiter] Network error, retrying in 2s');
     return 2000;
   }
 
   // Retry on server errors (5xx)
   if (error.status >= 500 && error.status < 600) {
-    console.log('[GitHubLimiter] Server error, retrying in 5s');
+    logger.info({ status: error.status }, '[GitHubLimiter] Server error, retrying in 5s');
     return 5000;
   }
 
@@ -83,15 +84,15 @@ githubLimiter.on('failed', async (error, jobInfo) => {
 });
 
 githubLimiter.on('retry', (error, jobInfo) => {
-  console.log('[GitHubLimiter] Retrying job:', {
+  logger.info({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[GitHubLimiter] Retrying job');
 });
 
 githubLimiter.on('depleted', (empty) => {
   if (empty) {
-    console.warn('[GitHubLimiter] Reservoir depleted, requests will be queued');
+    logger.warn('[GitHubLimiter] Reservoir depleted, requests will be queued');
   }
 });
 
@@ -137,7 +138,7 @@ export function updateGitHubLimiterFromHeaders(headers) {
       reservoir: remaining,
     });
 
-    console.log(`[GitHubLimiter] Updated reservoir: ${remaining}/${limit} remaining`);
+    logger.info({ remaining, limit }, '[GitHubLimiter] Updated reservoir');
   }
 }
 
@@ -149,7 +150,7 @@ export async function stopGitHubLimiter() {
   await githubLimiter.stop({
     dropWaitingJobs: false, // Complete queued jobs
   });
-  console.log('[GitHubLimiter] Stopped');
+  logger.info('[GitHubLimiter] Stopped');
 }
 
 export default githubLimiter;

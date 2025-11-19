@@ -6,6 +6,7 @@
  */
 
 import { getSharedProxy } from '../../api/telegram-asset-proxy.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Image Processor class
@@ -108,7 +109,7 @@ export class ImageProcessor {
         fileSize: photo.file_size,
       };
     } catch (error) {
-      console.error('Failed to process photo:', error);
+      logger.error({ err: error, fileId: photo.file_id }, 'Failed to process photo');
       return null;
     }
   }
@@ -146,7 +147,7 @@ export class ImageProcessor {
         fileSize: document.file_size,
       };
     } catch (error) {
-      console.error('Failed to process document:', error);
+      logger.error({ err: error, fileId: document.file_id, fileName: document.file_name }, 'Failed to process document');
       return null;
     }
   }
@@ -185,7 +186,7 @@ export class ImageProcessor {
         fileSize: sticker.file_size,
       };
     } catch (error) {
-      console.error('Failed to process sticker:', error);
+      logger.error({ err: error, fileId: sticker.file_id, emoji: sticker.emoji }, 'Failed to process sticker');
       return null;
     }
   }

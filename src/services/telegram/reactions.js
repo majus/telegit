@@ -4,6 +4,7 @@
  */
 
 import { getBot } from './bot.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Telegraf} TelegrafBot
@@ -61,12 +62,12 @@ export async function setReaction(chatId, messageId, emoji, botInstance = null) 
     ]);
     return true;
   } catch (error) {
-    console.error('Failed to set reaction:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
       emoji,
-      error: error.message,
-    });
+    }, 'Failed to set reaction');
     return false;
   }
 }
@@ -89,11 +90,11 @@ export async function removeReaction(chatId, messageId, botInstance = null) {
     await bot.telegram.setMessageReaction(chatId, messageId, []);
     return true;
   } catch (error) {
-    console.error('Failed to remove reaction:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Failed to remove reaction');
     return false;
   }
 }
@@ -214,11 +215,11 @@ export async function getUserReactions(chatId, messageId, botInstance = null) {
     // The actual structure depends on Telegram API response
     return message.reactions || [];
   } catch (error) {
-    console.error('Failed to get user reactions:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Failed to get user reactions');
     return [];
   }
 }

@@ -1,0 +1,95 @@
+# Prometheus Configuration for TeleGit
+# This file configures Prometheus scraping and alerting
+# Documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+
+  # How frequently to evaluate alerting rules
+  evaluation_interval: 15s
+
+  # Labels to attach to any time series or alerts
+  external_labels:
+    cluster: 'telegit-production'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'localhost:9093'
+      timeout: 10s
+
+# Load alerting rules
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # TeleGit application metrics
+  - job_name: 'telegit'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets:
+          - 'localhost:3000'
+        labels:
+          service: 'telegit'
+          instance: 'telegit-main'
+
+    # Relabeling rules
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 'localhost:3000'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+        labels:
+          service: 'prometheus'
+
+  # Node exporter (if running)
+  - job_name: 'node'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'localhost:9100'
+        labels:
+          service: 'node-exporter'
+
+  # PostgreSQL exporter (if running)
+  - job_name: 'postgres'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'localhost:9187'
+        labels:
+          service: 'postgres-exporter'
+
+# Storage configuration
+storage:
+  tsdb:
+    # How long to retain data
+    retention.time: 15d
+
+    # Maximum size of data
+    retention.size: 10GB
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: 'http://remote-storage:9201/write'
+#     queue_config:
+#       capacity: 10000
+#       max_shards: 10
+#       min_shards: 1
+#       max_samples_per_send: 5000
