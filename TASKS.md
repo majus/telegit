@@ -824,7 +824,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Configure Bottleneck for Telegram API rate limits
 - **Complexity**: Low
 - **Dependencies**: Task 1.1.2
-- **Affected Files**: `src/queue/telegram-limiter.js`
+- **Affected Files**: `src/queue/telegram-limiter.js`, `test/unit/queue/rate-limiters.test.js`
 - **Configuration**:
   - Max concurrent: 1
   - Min time: 34ms (~30 msgs/sec)
@@ -837,7 +837,7 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Configure Bottleneck for GitHub API rate limits
 - **Complexity**: Low
 - **Dependencies**: Task 1.1.2
-- **Affected Files**: `src/queue/github-limiter.js`
+- **Affected Files**: `src/queue/github-limiter.js`, `test/unit/queue/rate-limiters.test.js`
 - **Configuration**:
   - Max concurrent: 2
   - Min time: 720ms (~83 requests/min)
@@ -850,10 +850,10 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Configure Bottleneck for LLM API rate limits
 - **Complexity**: Low
 - **Dependencies**: Task 1.1.2
-- **Affected Files**: `src/queue/llm-limiter.js`
+- **Affected Files**: `src/queue/llm-limiter.js`, `test/unit/queue/rate-limiters.test.js`
 - **Configuration**:
   - Max concurrent: 3
-  - Min time: 200ms
+  - Min time: ~1200ms
   - Reservoir: 50 requests
   - Refresh: 50 requests/minute (adjust per provider)
 - **Testing**: Rate limits enforced, no rate limit errors from LLM API
@@ -865,13 +865,13 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Create queue for message processing with priority
 - **Complexity**: Medium
 - **Dependencies**: Task 6.1.1, Task 6.1.2, Task 6.1.3
-- **Affected Files**: `src/queue/message-queue.js`
+- **Affected Files**: `src/queue/message-queue.js`, `test/unit/queue/message-queue.test.js`
 - **Features**:
   - Priority queue (urgent messages first)
   - Retry logic with exponential backoff
   - Error handling
   - Queue metrics (size, processing time)
-- **Testing**: Messages processed in order, retries work
+- **Testing**: Messages processed in order, retries work - ✓ All tests passing
 - **Status**: ✓
 
 #### Task 6.2.2: Implement Scheduled Deletion Queue
