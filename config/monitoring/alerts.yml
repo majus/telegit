@@ -1,0 +1,226 @@
+# Prometheus Alerting Rules for TeleGit
+# This file defines alerting rules for monitoring the TeleGit service
+# Documentation: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+
+groups:
+  - name: telegit_service_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(telegit_errors_total[5m]))
+            /
+            sum(rate(telegit_messages_processed_total[5m]))
+          ) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+          service: telegit
+          alert_type: error_rate
+        annotations:
+          summary: "High error rate detected in TeleGit"
+          description: |
+            The error rate has exceeded 10% over the last 5 minutes.
+            Current error rate: {{ $value | humanizePercentage }}
+            This may indicate issues with message processing, external API failures, or system problems.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-HighErrorRate"
+
+      # Queue Backlog Alert
+      - alert: QueueBacklog
+        expr: telegit_queue_backlog > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: queue_backlog
+        annotations:
+          summary: "Message queue backlog is high"
+          description: |
+            The message queue has more than 100 pending messages for over 5 minutes.
+            Current backlog: {{ $value }} messages
+            This may indicate processing slowdown or increased message volume.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-QueueBacklog"
+
+      # Critical Queue Backlog Alert
+      - alert: CriticalQueueBacklog
+        expr: telegit_queue_backlog > 500
+        for: 2m
+        labels:
+          severity: critical
+          service: telegit
+          alert_type: queue_backlog
+        annotations:
+          summary: "Critical message queue backlog"
+          description: |
+            The message queue has more than 500 pending messages.
+            Current backlog: {{ $value }} messages
+            Immediate action required to prevent service degradation.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-CriticalQueueBacklog"
+
+      # Slow Message Processing Alert
+      - alert: SlowMessageProcessing
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(telegit_processing_duration_seconds_bucket[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: performance
+        annotations:
+          summary: "Message processing is slow"
+          description: |
+            95th percentile of message processing time exceeds 30 seconds.
+            Current p95: {{ $value | humanizeDuration }}
+            This may indicate performance issues with LLM API or GitHub API.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-SlowProcessing"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionErrors
+        expr: |
+          sum(rate(telegit_database_queries_total{status="error"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          service: telegit
+          alert_type: database
+        annotations:
+          summary: "Database connection errors detected"
+          description: |
+            Database queries are failing at a rate of {{ $value }} errors per second.
+            This indicates database connectivity or query issues.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-DatabaseErrors"
+
+      # GitHub API Errors
+      - alert: GitHubAPIErrors
+        expr: |
+          (
+            sum(rate(telegit_github_api_calls_total{status="error"}[5m]))
+            /
+            sum(rate(telegit_github_api_calls_total[5m]))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: github_api
+        annotations:
+          summary: "High GitHub API error rate"
+          description: |
+            GitHub API error rate exceeds 20% over the last 5 minutes.
+            Current error rate: {{ $value | humanizePercentage }}
+            This may indicate API rate limiting, token issues, or GitHub service problems.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-GitHubAPIErrors"
+
+      # LLM API Errors
+      - alert: LLMAPIErrors
+        expr: |
+          (
+            sum(rate(telegit_llm_api_calls_total{status="error"}[5m]))
+            /
+            sum(rate(telegit_llm_api_calls_total[5m]))
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: llm_api
+        annotations:
+          summary: "High LLM API error rate"
+          description: |
+            LLM API error rate exceeds 20% over the last 5 minutes.
+            Current error rate: {{ $value | humanizePercentage }}
+            This may indicate API rate limiting, token issues, or LLM service problems.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-LLMAPIErrors"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up{job="telegit"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: telegit
+          alert_type: availability
+        annotations:
+          summary: "TeleGit service is down"
+          description: |
+            The TeleGit service has been unreachable for over 1 minute.
+            Immediate investigation required.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-ServiceDown"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes{job="telegit"}
+            /
+            1024 / 1024 / 1024
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: resources
+        annotations:
+          summary: "High memory usage detected"
+          description: |
+            Service memory usage exceeds 1GB for over 10 minutes.
+            Current usage: {{ $value | humanize }}GB
+            Consider investigating memory leaks or scaling resources.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-HighMemory"
+
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: |
+          rate(process_cpu_seconds_total{job="telegit"}[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: resources
+        annotations:
+          summary: "High CPU usage detected"
+          description: |
+            Service CPU usage exceeds 80% for over 10 minutes.
+            Current usage: {{ $value | humanizePercentage }}
+            Consider investigating performance issues or scaling resources.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-HighCPU"
+
+      # Token Usage Alert (LLM Cost Monitoring)
+      - alert: HighTokenUsage
+        expr: |
+          sum(rate(telegit_llm_tokens_used_total[1h])) > 1000000
+        for: 1h
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: cost
+        annotations:
+          summary: "High LLM token usage detected"
+          description: |
+            LLM token usage exceeds 1M tokens per hour.
+            Current rate: {{ $value }} tokens/hour
+            This may result in unexpected costs. Review message volume and processing logic.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-HighTokenUsage"
+
+      # Database Query Performance
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(telegit_database_query_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: telegit
+          alert_type: database
+        annotations:
+          summary: "Database queries are slow"
+          description: |
+            95th percentile of database query time exceeds 2 seconds.
+            Current p95: {{ $value | humanizeDuration }}
+            Consider reviewing query performance and database indexes.
+          runbook_url: "https://github.com/majus/telegit/wiki/Runbook-SlowQueries"
