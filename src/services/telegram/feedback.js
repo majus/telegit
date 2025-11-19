@@ -11,9 +11,10 @@ import { FeedbackRepository } from '../../database/repositories/feedback.js';
  */
 
 /**
- * Default feedback deletion delay in milliseconds (10 minutes)
+ * Configuration constants
  */
-export const DEFAULT_DELETION_DELAY = 10 * 60 * 1000; // 10 minutes
+export const DELETION_DELAY_MS = 10 * 60 * 1000; // 10 minutes
+export const DELETION_CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
 
 /**
  * Post a feedback message as a reply to the original message
@@ -28,7 +29,7 @@ export const DEFAULT_DELETION_DELAY = 10 * 60 * 1000; // 10 minutes
  */
 export async function postFeedback(chatId, replyToMessageId, message, operationId, options = {}) {
   const bot = options.botInstance || getBot();
-  const deletionDelay = options.deletionDelay ?? DEFAULT_DELETION_DELAY;
+  const deletionDelay = options.deletionDelay ?? DELETION_DELAY_MS;
 
   if (!bot) {
     throw new Error('Bot instance not initialized');
@@ -76,6 +77,7 @@ export async function postFeedback(chatId, replyToMessageId, message, operationI
 
 /**
  * Delete a feedback message immediately
+ * Deletes the Telegram message but preserves the database record for audit/history
  * @param {number} chatId - Chat ID
  * @param {number} messageId - Message ID to delete
  * @param {TelegrafBot} [botInstance] - Bot instance
@@ -91,8 +93,9 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
   try {
     await bot.telegram.deleteMessage(chatId, messageId);
 
-    // Remove from database
+    // Mark as dismissed in database (preserve record for audit/history)
     const feedbackRepo = new FeedbackRepository();
+    await feedbackRepo.markDismissed(messageId);
 
     console.log('Feedback message deleted:', { chatId, messageId });
     return true;
@@ -101,8 +104,14 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
     if (error.response?.error_code === 400) {
       console.log('Feedback message already deleted:', { chatId, messageId });
 
-      // Still remove from database
-      const feedbackRepo = new FeedbackRepository();
+      // Still mark as dismissed in database
+      try {
+        const feedbackRepo = new FeedbackRepository();
+        await feedbackRepo.markDismissed(messageId);
+      } catch (dbError) {
+        // Non-fatal if already dismissed
+        console.log('Could not mark as dismissed (may already be dismissed):', dbError.message);
+      }
 
       return true;
     }
@@ -211,11 +220,11 @@ export async function processScheduledDeletions(botInstance = null) {
 
 /**
  * Start background job for processing scheduled deletions
- * @param {number} [intervalMs] - Check interval in milliseconds (default: 1 minute)
+ * @param {number} [intervalMs] - Check interval in milliseconds
  * @param {TelegrafBot} [botInstance] - Bot instance
  * @returns {NodeJS.Timeout} Interval ID (can be used with clearInterval)
  */
-export function startDeletionScheduler(intervalMs = 60000, botInstance = null) {
+export function startDeletionScheduler(intervalMs = DELETION_CHECK_INTERVAL_MS, botInstance = null) {
   console.log(`Starting deletion scheduler (interval: ${intervalMs}ms)`);
 
   const intervalId = setInterval(async () => {

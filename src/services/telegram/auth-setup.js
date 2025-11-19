@@ -6,6 +6,11 @@
 import { ConfigRepository } from '../../database/repositories/config.js';
 
 /**
+ * Configuration constants
+ */
+export const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
  * In-memory storage for setup sessions
  * In production, this should be persisted to database
  * Key: userId, Value: { step, data, groupId, timestamp }
@@ -20,11 +25,6 @@ const SetupSteps = {
   AWAITING_PAT: 'awaiting_pat',
   COMPLETED: 'completed',
 };
-
-/**
- * Session timeout (30 minutes)
- */
-const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 /**
  * Start a new setup session for a user
@@ -59,7 +59,7 @@ export function getSetupSession(userId) {
   }
 
   // Check if session has expired
-  if (Date.now() - session.timestamp > SESSION_TIMEOUT) {
+  if (Date.now() - session.timestamp > SESSION_TIMEOUT_MS) {
     setupSessions.delete(userId);
     return null;
   }
@@ -116,8 +116,8 @@ export async function handleRepoInput(ctx, repoUrl) {
     };
   }
 
-  // Validate repository URL format
-  const repoPattern = /^https?:\/\/github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/?$/;
+  // Validate repository URL format (HTTPS only for security)
+  const repoPattern = /^https:\/\/github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/?$/;
   const match = repoUrl.trim().match(repoPattern);
 
   if (!match) {
@@ -125,7 +125,7 @@ export async function handleRepoInput(ctx, repoUrl) {
       success: false,
       message: `❌ Invalid repository URL format.
 
-Please provide a valid GitHub repository URL like:
+Please provide a valid GitHub repository URL (HTTPS only) like:
 https://github.com/owner/repo-name
 
 Try again:`,
@@ -201,11 +201,23 @@ Please check your token and try again:`,
     };
   }
 
-  // Try to delete the message containing the PAT for security
+  // CRITICAL: Delete the message containing the PAT for security
   try {
     await ctx.deleteMessage();
   } catch (error) {
-    console.warn('Could not delete PAT message:', error.message);
+    // PAT deletion failure is a CRITICAL security issue
+    console.error('SECURITY: Failed to delete PAT message:', error.message);
+    return {
+      success: false,
+      message: `❌ CRITICAL SECURITY ERROR: Could not delete your PAT message from chat history.
+
+For your security, please:
+1. Revoke the PAT you just sent at: https://github.com/settings/tokens
+2. Delete the message manually if possible
+3. Try the setup process again
+
+Your PAT is currently visible in chat history - please revoke it immediately.`,
+    };
   }
 
   // Validate PAT with GitHub API if validator provided
@@ -354,7 +366,7 @@ export function cleanupExpiredSessions() {
   let cleaned = 0;
 
   for (const [userId, session] of setupSessions.entries()) {
-    if (now - session.timestamp > SESSION_TIMEOUT) {
+    if (now - session.timestamp > SESSION_TIMEOUT_MS) {
       setupSessions.delete(userId);
       cleaned++;
     }

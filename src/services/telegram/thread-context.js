@@ -11,14 +11,16 @@ import { ConversationContextRepository } from '../../database/repositories/conte
  */
 
 /**
- * Default TTL for cached context (24 hours)
+ * Configuration constants
  */
-const DEFAULT_CONTEXT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+export const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const MAX_THREAD_DEPTH = 20; // Maximum messages to collect in a thread
+export const CONTEXT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
- * Maximum number of messages to collect in a thread
+ * @deprecated Use CONTEXT_TTL_MS instead
  */
-const MAX_THREAD_DEPTH = 20;
+const DEFAULT_CONTEXT_TTL = CONTEXT_TTL_MS;
 
 /**
  * Gather conversation context from a message thread
@@ -39,7 +41,7 @@ export async function gatherThreadContext(ctx, options = {}) {
 
   const maxDepth = options.maxDepth ?? MAX_THREAD_DEPTH;
   const useCache = options.useCache ?? true;
-  const cacheTTL = options.cacheTTL ?? DEFAULT_CONTEXT_TTL;
+  const cacheTTL = options.cacheTTL ?? CONTEXT_TTL_MS;
   const bot = options.botInstance || getBot();
 
   const chatId = message.chat.id;
@@ -53,8 +55,17 @@ export async function gatherThreadContext(ctx, options = {}) {
     return [formatMessage(message)];
   }
 
-  // Generate thread ID (use the root message ID when known, or current for now)
-  const threadId = `${chatId}:${messageId}`;
+  // Walk up the reply chain to find the root message ID
+  let currentMessage = message;
+  let rootMessageId = messageId;
+
+  while (currentMessage.reply_to_message && maxDepth > 0) {
+    currentMessage = currentMessage.reply_to_message;
+    rootMessageId = currentMessage.message_id;
+  }
+
+  // Generate thread ID using the root message ID for consistent caching
+  const threadId = `${chatId}:${rootMessageId}`;
 
   // Try to get from cache if enabled
   if (useCache) {
@@ -170,10 +181,10 @@ export async function invalidateExpiredContexts() {
 
 /**
  * Start background job for invalidating expired contexts
- * @param {number} [intervalMs] - Check interval in milliseconds (default: 1 hour)
+ * @param {number} [intervalMs] - Check interval in milliseconds
  * @returns {NodeJS.Timeout} Interval ID
  */
-export function startContextCleanup(intervalMs = 60 * 60 * 1000) {
+export function startContextCleanup(intervalMs = CONTEXT_CLEANUP_INTERVAL_MS) {
   console.log(`Starting context cleanup scheduler (interval: ${intervalMs}ms)`);
 
   const intervalId = setInterval(async () => {

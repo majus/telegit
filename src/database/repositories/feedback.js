@@ -13,36 +13,41 @@ export class FeedbackRepository {
    * Create a feedback message record
    * @param {Object} data - Feedback data
    * @param {string} data.operationId - Operation UUID
+   * @param {number} data.chatId - Telegram chat ID
    * @param {number} data.feedbackMessageId - Telegram message ID of the feedback
    * @param {Date|string} data.scheduledDeletion - Timestamp when message should be deleted
    * @returns {Promise<Object>} Created feedback record
    */
   async createFeedback(data) {
     try {
-      const { operationId, feedbackMessageId, scheduledDeletion } = data;
+      const { operationId, chatId, feedbackMessageId, scheduledDeletion } = data;
 
       // Validate required fields
-      if (!operationId || !feedbackMessageId || !scheduledDeletion) {
-        throw new Error('Missing required fields: operationId, feedbackMessageId, scheduledDeletion');
+      if (!operationId || !chatId || !feedbackMessageId || !scheduledDeletion) {
+        throw new Error('Missing required fields: operationId, chatId, feedbackMessageId, scheduledDeletion');
+      }
+
+      // Type validation for IDs
+      if (typeof chatId !== 'number' || typeof feedbackMessageId !== 'number') {
+        throw new Error('chatId and feedbackMessageId must be numbers');
       }
 
       const result = await query(
         `INSERT INTO operation_feedback (
           operation_id,
+          telegram_chat_id,
           feedback_message_id,
           scheduled_deletion
         )
-        VALUES ($1, $2, $3)
+        VALUES ($1, $2, $3, $4)
         RETURNING *`,
-        [operationId, feedbackMessageId, scheduledDeletion]
+        [operationId, chatId, feedbackMessageId, scheduledDeletion]
       );
 
       const feedback = result.rows[0];
 
       return {
         id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
@@ -63,6 +68,11 @@ export class FeedbackRepository {
    */
   async getFeedbackByMessageId(messageId) {
     try {
+      // Type validation
+      if (typeof messageId !== 'number') {
+        throw new Error('messageId must be a number');
+      }
+
       const result = await query(
         'SELECT * FROM operation_feedback WHERE feedback_message_id = $1',
         [messageId]
@@ -76,8 +86,6 @@ export class FeedbackRepository {
 
       return {
         id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
@@ -111,8 +119,6 @@ export class FeedbackRepository {
 
       return {
         id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
@@ -151,8 +157,6 @@ export class FeedbackRepository {
         id: feedback.id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -182,8 +186,6 @@ export class FeedbackRepository {
         id: feedback.id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -209,8 +211,6 @@ export class FeedbackRepository {
 
       return result.rows.map(feedback => ({
         id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
@@ -267,8 +267,6 @@ export class FeedbackRepository {
 
       return {
         id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
         operationId: feedback.operation_id,
         chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
