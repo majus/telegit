@@ -24,6 +24,18 @@ telegit/
 │   └── migrations/          # Migration files
 │       └── 001_initial_schema.sql
 ├── src/                      # Source code
+│   ├── ai/                  # AI processing engine (Phase 4)
+│   │   ├── llm-client.js        # LLM client initialization
+│   │   ├── state-schema.js      # LangGraph state schema
+│   │   ├── intent-classifier.js # Intent classification
+│   │   ├── workflow.js          # LangGraph workflow orchestration
+│   │   ├── processor.js         # Main AI message processor
+│   │   └── nodes/           # Workflow nodes
+│   │       ├── analyze.js   # Intent analysis node
+│   │       ├── format.js    # Issue formatting node
+│   │       ├── store.js     # Database storage node
+│   │       ├── notify.js    # Telegram notification node
+│   │       └── error.js     # Error handling node
 │   ├── database/            # Database layer
 │   │   ├── db.js           # PostgreSQL client setup
 │   │   └── repositories/   # Data access repositories
@@ -36,22 +48,26 @@ telegit/
 │   ├── types/              # TypeScript type definitions
 │   └── utils/              # Utility functions
 │       └── encryption.js   # AES-256-GCM encryption utility
+├── prompts/                 # LLM prompts
+│   └── intent-classification.txt
 ├── test/                    # Test files
 │   ├── unit/               # Unit tests
+│   │   ├── ai/             # AI component tests
 │   │   ├── database/       # Database tests
 │   │   │   └── repositories.test.js
 │   │   ├── telegram/       # Telegram bot tests
 │   │   └── utils/          # Utility tests
 │   │       └── encryption.test.js
+│   ├── promptfoo/          # Promptfoo evaluations
 │   ├── mocks/              # Mock data generators
 │   └── helpers/            # Test helpers
 ├── config/                 # Configuration files
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
-└── CLAUDE.md               # This file - AI assistant guide
+├── CLAUDE.md               # This file - AI assistant guide
+└── vitest.config.js        # Test configuration
 ```
 
-**Current State**: Phase 1 complete (project setup), Phase 2 partially implemented (database layer complete), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management).
 ## Technical Stack
 
 ### Core Technologies
@@ -65,7 +81,8 @@ telegit/
 - **Telegraf**: NPM library for Telegram Bot API integration
 - **PostgreSQL**: Database backend (using `pg` NPM library)
 - **GitHub MCP Server**: For GitHub API integration (NOT generic HTTP client)
-- **LLM/AI SDK**: AI agent SDK for flexibility
+- **LangChain**: AI agent SDK (@langchain/core, @langchain/openai, @langchain/langgraph, @langchain/mcp-adapters)
+- **Promptfoo**: LLM evaluation and testing framework
 
 ### Integrations
 - Telegram Bot API: https://core.telegram.org/bots/api
@@ -162,12 +179,15 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 
 ## AI Assistant Guidelines
 
+**IMPORTANT**: Do not reflect current project progress or future work in this file. This document should focus on general guidelines and conventions for AI assistants, not track implementation status. Use TASKS.md for tracking progress.
+
 ### General Principles
 - Read README.md for detailed feature specifications and requirements
 - Follow ES module syntax (`import/export`, not `require()`)
 - Use GitHub MCP Server for GitHub API (not generic HTTP clients)
+- Use LangChain for AI workflows (already integrated)
 - Keep integrations modular and pluggable
-- Include tests when implementing features
+- Include tests when implementing features (Vitest + Promptfoo)
 - Add comments for non-obvious logic
 - Update documentation when making changes
 

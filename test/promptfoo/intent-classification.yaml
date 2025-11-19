@@ -1,0 +1,249 @@
+# Promptfoo Evaluation Configuration for Intent Classification
+# Task 4.2.2a: Promptfoo Evaluation - Intent Classification
+#
+# This configuration tests the accuracy of intent classification
+# Target: >80% accuracy across all intent types
+
+description: "Intent Classification Accuracy Evaluation"
+
+prompts:
+  - file://../../prompts/intent-classification.txt
+
+providers:
+  - id: openai:gpt-4
+    config:
+      temperature: 0.3
+      max_tokens: 500
+
+  - id: openai:gpt-3.5-turbo
+    config:
+      temperature: 0.3
+      max_tokens: 500
+
+tests:
+  # Bug Detection Tests
+  - description: "Explicit bug report"
+    vars:
+      context: "No previous context available."
+      message: "The login button doesn't work on mobile devices #bug"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_bug"') || output.includes('"intent": "create_bug"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.confidence >= 0.7
+
+  - description: "Bug with error message"
+    vars:
+      context: "No previous context available."
+      message: "Getting 500 error when uploading files to the server"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_bug"') || output.includes('"intent": "create_bug"')
+
+  - description: "Bug with stack trace"
+    vars:
+      context: "No previous context available."
+      message: "TypeError: Cannot read property 'name' of undefined in UserProfile component"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_bug"') || output.includes('"intent": "create_bug"')
+
+  # Task Detection Tests
+  - description: "TODO task"
+    vars:
+      context: "No previous context available."
+      message: "TODO: Add validation to the signup form #task"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_task"') || output.includes('"intent": "create_task"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.labels.includes('task')
+
+  - description: "Implementation task"
+    vars:
+      context: "No previous context available."
+      message: "We need to implement rate limiting for the API endpoints"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_task"') || output.includes('"intent": "create_task"')
+
+  - description: "Refactoring task"
+    vars:
+      context: "No previous context available."
+      message: "Refactor the authentication module to use JWT tokens"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_task"') || output.includes('"intent": "create_task"')
+
+  # Idea Detection Tests
+  - description: "Feature idea with hashtag"
+    vars:
+      context: "No previous context available."
+      message: "What if we added dark mode to the application? #idea"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_idea"') || output.includes('"intent": "create_idea"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.confidence >= 0.7
+
+  - description: "Feature request"
+    vars:
+      context: "No previous context available."
+      message: "Feature request: export user data as CSV format"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_idea"') || output.includes('"intent": "create_idea"')
+
+  - description: "Enhancement suggestion"
+    vars:
+      context: "No previous context available."
+      message: "Would be cool to have social login with Google and Facebook"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_idea"') || output.includes('"intent": "create_idea"')
+
+  # Update Issue Tests
+  - description: "Close issue with number"
+    vars:
+      context: "No previous context available."
+      message: "Close issue #42, the bug has been fixed in production"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"update_issue"') || output.includes('"intent": "update_issue"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.issueNumber === '42'
+
+  - description: "Update issue without hash"
+    vars:
+      context: "No previous context available."
+      message: "Update issue 15 with more context about the authentication error"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"update_issue"') || output.includes('"intent": "update_issue"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.issueNumber === '15'
+
+  # Search Issues Tests
+  - description: "Find issues"
+    vars:
+      context: "No previous context available."
+      message: "Find all bugs related to authentication"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"search_issues"') || output.includes('"intent": "search_issues"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.searchQuery && result.entities.searchQuery.includes('authentication')
+
+  - description: "List issues"
+    vars:
+      context: "No previous context available."
+      message: "Show me all open tasks tagged #urgent"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"search_issues"') || output.includes('"intent": "search_issues"')
+
+  # Unknown Intent Tests
+  - description: "Casual conversation"
+    vars:
+      context: "No previous context available."
+      message: "Hey, how are you doing today?"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"unknown"') || output.includes('"intent": "unknown"')
+
+  - description: "Thank you message"
+    vars:
+      context: "No previous context available."
+      message: "Thanks for the help!"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"unknown"') || output.includes('"intent": "unknown"')
+
+  # Entity Extraction Tests
+  - description: "Extract multiple hashtags"
+    vars:
+      context: "No previous context available."
+      message: "Fix the navigation bug #urgent #ui #bug"
+    assert:
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.labels.includes('urgent') &&
+          result.entities.labels.includes('ui') &&
+          result.entities.labels.includes('bug')
+
+  - description: "Extract mentions as assignees"
+    vars:
+      context: "No previous context available."
+      message: "Assign this task to @john and @sarah #task"
+    assert:
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.assignees.includes('john') &&
+          result.entities.assignees.includes('sarah')
+
+  - description: "Extract title for create intent"
+    vars:
+      context: "No previous context available."
+      message: "Payment processing is failing for credit card transactions"
+    assert:
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.entities.title && result.entities.title.length <= 60
+
+  # Context Handling Tests
+  - description: "Use conversation context"
+    vars:
+      context: "[1] alice: We have a serious authentication problem\n[2] bob: Users are unable to log in with their credentials"
+      message: "This needs to be fixed ASAP #bug"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_bug"') || output.includes('"intent": "create_bug"')
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.confidence >= 0.7
+
+  # Edge Cases
+  - description: "Message with special characters"
+    vars:
+      context: "No previous context available."
+      message: "Bug: Users with names like \"O'Brien\" can't sign up"
+    assert:
+      - type: javascript
+        value: output.includes('"intent":"create_bug"') || output.includes('"intent": "create_bug"')
+
+  - description: "Ambiguous message"
+    vars:
+      context: "No previous context available."
+      message: "Something seems off with the app"
+    assert:
+      - type: javascript
+        value: |
+          const result = JSON.parse(output);
+          result.confidence >= 0 && result.confidence <= 1
+
+defaultTest:
+  options:
+    transformResponse: |
+      // Extract JSON from markdown code blocks if present
+      const match = output.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      return match ? match[1] : output;
+
+# Accuracy targets
+# We aim for >80% accuracy across all intent types
+outputPath: ./promptfoo-results/intent-classification-report.json
