@@ -1,0 +1,139 @@
+{
+  "name": "telegit",
+  "description": "AI-powered Telegram bot that performs user actions from Telegram chat to GitHub issues",
+  "type": "application",
+  "dockerfile": "Dockerfile",
+  "buildContext": ".",
+  "port": 3000,
+  "replicas": 1,
+  "autoDeploy": true,
+  "domains": [
+    {
+      "host": "telegit.example.com",
+      "path": "/",
+      "https": true,
+      "certificateType": "letsencrypt"
+    }
+  ],
+  "env": [
+    {
+      "name": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "name": "DB_HOST",
+      "value": "postgres"
+    },
+    {
+      "name": "DB_PORT",
+      "value": "5432"
+    },
+    {
+      "name": "DB_NAME",
+      "value": "telegit"
+    },
+    {
+      "name": "DB_USER",
+      "value": "telegit",
+      "secret": false
+    },
+    {
+      "name": "DB_PASSWORD",
+      "value": "",
+      "secret": true,
+      "description": "PostgreSQL password - set via Dokploy dashboard"
+    },
+    {
+      "name": "TELEGRAM_BOT_TOKEN",
+      "value": "",
+      "secret": true,
+      "description": "Telegram Bot API token from @BotFather"
+    },
+    {
+      "name": "ENCRYPTION_KEY",
+      "value": "",
+      "secret": true,
+      "description": "64-character hex string for AES-256-GCM encryption (generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\")"
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "value": "",
+      "secret": true,
+      "description": "OpenAI API key for LLM processing"
+    },
+    {
+      "name": "GITHUB_MCP_SERVER_PATH",
+      "value": "",
+      "secret": false,
+      "description": "Path to GitHub MCP server executable"
+    }
+  ],
+  "services": [
+    {
+      "name": "postgres",
+      "image": "postgres:16-alpine",
+      "replicas": 1,
+      "env": [
+        {
+          "name": "POSTGRES_DB",
+          "value": "telegit"
+        },
+        {
+          "name": "POSTGRES_USER",
+          "value": "telegit"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "value": "",
+          "secret": true
+        }
+      ],
+      "volumes": [
+        {
+          "name": "postgres-data",
+          "mountPath": "/var/lib/postgresql/data"
+        }
+      ],
+      "healthcheck": {
+        "command": "pg_isready -U telegit -d telegit",
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 5
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "postgres-data",
+      "size": "10Gi"
+    }
+  ],
+  "resources": {
+    "limits": {
+      "cpu": "1000m",
+      "memory": "1Gi"
+    },
+    "requests": {
+      "cpu": "100m",
+      "memory": "256Mi"
+    }
+  },
+  "scaling": {
+    "enabled": true,
+    "minReplicas": 1,
+    "maxReplicas": 3,
+    "targetCPUUtilization": 70,
+    "targetMemoryUtilization": 80
+  },
+  "restartPolicy": "always",
+  "monitoring": {
+    "enabled": true,
+    "metrics": {
+      "enabled": true
+    },
+    "logs": {
+      "enabled": true,
+      "retention": "7d"
+    }
+  }
+}

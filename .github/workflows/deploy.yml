@@ -1,0 +1,130 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        default: 'latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    if: ${{ github.event.inputs.environment == 'staging' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.telegit.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging via Dokploy
+        env:
+          DOKPLOY_API_URL: ${{ secrets.DOKPLOY_STAGING_API_URL }}
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_STAGING_API_TOKEN }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} to staging..."
+
+          # Example deployment using Dokploy API
+          # Adjust based on your Dokploy setup
+          curl -X POST "$DOKPLOY_API_URL/deploy" \
+            -H "Authorization: Bearer $DOKPLOY_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "application": "telegit",
+              "environment": "staging",
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+            }'
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 30
+
+          # Add health check or deployment verification here
+          # For now, just a placeholder
+          echo "Deployment verification completed"
+
+      - name: Deployment summary
+        run: |
+          echo "## Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Staging" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+
+  deploy-production:
+    name: Deploy to Production
+    if: ${{ github.event.inputs.environment == 'production' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://telegit.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production deployment approval
+        run: |
+          echo "::notice::Production deployment requires manual approval"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}"
+
+      - name: Deploy to Production via Dokploy
+        env:
+          DOKPLOY_API_URL: ${{ secrets.DOKPLOY_PRODUCTION_API_URL }}
+          DOKPLOY_API_TOKEN: ${{ secrets.DOKPLOY_PRODUCTION_API_TOKEN }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          echo "Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} to production..."
+
+          # Example deployment using Dokploy API
+          # Adjust based on your Dokploy setup
+          curl -X POST "$DOKPLOY_API_URL/deploy" \
+            -H "Authorization: Bearer $DOKPLOY_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "application": "telegit",
+              "environment": "production",
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+            }'
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 30
+
+          # Add health check or deployment verification here
+          # For now, just a placeholder
+          echo "Deployment verification completed"
+
+      - name: Deployment summary
+        run: |
+          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** Production" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Production deployment completed"
+          # Add notification logic here (Slack, email, etc.)

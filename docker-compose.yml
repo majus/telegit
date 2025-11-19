@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: telegit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: telegit
+      POSTGRES_USER: telegit
+      POSTGRES_PASSWORD: telegit_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U telegit -d telegit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - telegit-network
+
+  # TeleGit Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegit-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: telegit
+      DB_USER: telegit
+      DB_PASSWORD: telegit_dev_password
+
+      # Node Environment
+      NODE_ENV: development
+
+      # Application Configuration (override with .env file)
+      # TELEGRAM_BOT_TOKEN: your_telegram_bot_token
+      # ENCRYPTION_KEY: your_encryption_key
+      # OPENAI_API_KEY: your_openai_api_key
+      # GITHUB_MCP_SERVER_PATH: path_to_mcp_server
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for development (hot reload with --watch)
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+      - ./prompts:/app/prompts:ro
+      - ./db:/app/db:ro
+    networks:
+      - telegit-network
+    command: ["node", "--watch", "src/index.js"]
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  telegit-network:
+    driver: bridge
