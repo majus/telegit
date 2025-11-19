@@ -43,11 +43,17 @@ telegit/
 │   │       ├── operations.js # Operations tracking repository
 │   │       ├── feedback.js # Feedback messages repository
 │   │       └── context.js  # Conversation context repository
+│   ├── integrations/        # External integrations
+│   │   └── github/         # GitHub MCP integration
+│   │       ├── mcp-client.js      # MCP client with SSE transport
+│   │       ├── mcp-adapter.js     # LangChain tool adapter
+│   │       └── tools.js           # GitHub tool wrapper functions
 │   ├── services/
 │   │   └── telegram/       # Telegram bot service (partial implementation)
 │   ├── types/              # TypeScript type definitions
-│   └── utils/              # Utility functions
-│       └── encryption.js   # AES-256-GCM encryption utility
+│   ├── utils/              # Utility functions
+│   │   └── encryption.js   # AES-256-GCM encryption utility
+│   └── api/                # API endpoints
 ├── prompts/                 # LLM prompts
 │   └── intent-classification.txt
 ├── test/                    # Test files
@@ -58,10 +64,12 @@ telegit/
 │   │   ├── telegram/       # Telegram bot tests
 │   │   └── utils/          # Utility tests
 │   │       └── encryption.test.js
+│   ├── integration/        # Integration tests
 │   ├── promptfoo/          # Promptfoo evaluations
 │   ├── mocks/              # Mock data generators
 │   └── helpers/            # Test helpers
 ├── config/                 # Configuration files
+│   └── env.js              # Environment variable loader with validation
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
 ├── CLAUDE.md               # This file - AI assistant guide
@@ -102,6 +110,17 @@ telegit/
 - Use Vitest for testing
 - Use emojis for bot status indicators as specified in README.md
 - Follow minimalist, non-disruptive design philosophy
+
+### TASKS.md Maintenance
+
+Keep TASKS.md focused on task details only. Progress is tracked by task status marks (☐/⚠/✓), not aggregate metrics.
+
+**IMPORTANT**: When updating TASKS.md:
+- ✅ **DO**: Mark task status changes (☐ → ⚠ → ✓)
+- ✅ **DO**: Update task descriptions when implementation changes
+- ✅ **DO**: Add architecture notes to specific task sections when refactoring occurs
+- ❌ **DO NOT**: Create summary statistics or aggregate counts
+- ❌ **DO NOT**: Add any extra sections beyond the existing task structure
 
 ### Error Message Guidelines
 

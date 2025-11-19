@@ -737,12 +737,12 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Set up Model Context Protocol client with SSE transport
 - **Complexity**: Medium
 - **Dependencies**: Task 1.1.4
-- **Affected Files**: `src/integrations/github/mcp-client.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Features**:
-  - SSE transport configuration
-  - MCP client initialization
-  - Connection management
-  - Error handling and reconnection
+  - SSE transport configuration via MultiServerMCPClient
+  - Automatic SSE fallback from HTTP
+  - Connection management with proper cleanup
+  - Error handling and reconnection built-in
 - **Testing**: MCP client connects to server successfully
 - **Status**: ✓
 
@@ -750,12 +750,12 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Wrap GitHub MCP server as LangChain tools using official adapter
 - **Complexity**: Medium
 - **Dependencies**: Task 5.1.1
-- **Affected Files**: `src/integrations/github/mcp-adapter.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Features**:
-  - Use `wrapMCPServer` from `@langchain/mcp-adapters`
-  - Configure GitHub PAT authentication
+  - Use `MultiServerMCPClient` from `@langchain/mcp-adapters`
+  - Configure GitHub PAT authentication via headers
   - Filter specific tools (create_issue, update_issue, search_issues)
-  - Tool invocation and response handling
+  - Tool invocation via LangChain tool.invoke() method
 - **Testing**: MCP tools usable as LangChain tools
 - **Status**: ✓
 
@@ -765,11 +765,12 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Create wrapper functions for GitHub MCP tools
 - **Complexity**: Low
 - **Dependencies**: Task 5.1.2
-- **Affected Files**: `src/integrations/github/tools.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Functions**:
   - `createIssue(repository, title, body, labels, assignees)`
   - `updateIssue(repository, issueNumber, data)`
   - `searchIssues(repository, query, options)`
+  - `closeIssue()`, `reopenIssue()`, `addLabels()` convenience methods
 - **Testing**: Each tool function works correctly
 - **Status**: ✓
 
