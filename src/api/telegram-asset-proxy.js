@@ -52,37 +52,14 @@ export class TelegramAssetProxy {
   }
 
   /**
-   * Fetch file from Telegram servers and return response data with headers
-   * @param {string} filePath - Telegram file path
-   * @returns {Promise<{data: Buffer, headers: Object}>} File data and response headers
+   * Extract file path from HTTP request
+   * @param {string} url - Request URL
+   * @returns {string} Decoded file path
    * @private
    */
-  async _fetchFromTelegram(filePath) {
-    const url = this._buildTelegramUrl(filePath);
-
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (response) => {
-          if (response.statusCode !== 200) {
-            reject(
-              new Error(
-                `Failed to fetch Telegram asset. Status: ${response.statusCode}`
-              )
-            );
-            return;
-          }
-
-          const chunks = [];
-          response.on('data', (chunk) => chunks.push(chunk));
-          response.on('end', () => {
-            resolve({
-              data: Buffer.concat(chunks),
-              headers: response.headers,
-            });
-          });
-        })
-        .on('error', reject);
-    });
+  _extractFilePath(url) {
+    // Expecting URL format: /api/telegram-asset/:filePath
+    return decodeURIComponent(url.split('/').pop());
   }
 
   /**
@@ -100,7 +77,7 @@ export class TelegramAssetProxy {
 
   /**
    * Express/HTTP handler for proxy requests
-   * Transparently proxies requests to Telegram and passes through response headers
+   * Streams responses directly from Telegram to client without buffering
    * @param {Object} req - HTTP request object
    * @param {Object} res - HTTP response object
    * @returns {Promise<void>}
@@ -108,8 +85,7 @@ export class TelegramAssetProxy {
   async handleRequest(req, res) {
     try {
       // Extract file path from request
-      // Expecting URL format: /api/telegram-asset/:filePath
-      const filePath = decodeURIComponent(req.params.filePath || req.url.split('/').pop());
+      const filePath = req.params?.filePath || this._extractFilePath(req.url);
 
       if (!filePath) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -117,18 +93,45 @@ export class TelegramAssetProxy {
         return;
       }
 
-      // Fetch from Telegram
-      const { data, headers } = await this._fetchFromTelegram(filePath);
+      // Build Telegram URL and stream response
+      const url = this._buildTelegramUrl(filePath);
 
-      // Pass through Telegram's response headers
-      const responseHeaders = { ...headers };
+      return new Promise((resolve, reject) => {
+        https.get(url, (telegramResponse) => {
+          // Handle non-200 responses
+          if (telegramResponse.statusCode !== 200) {
+            res.writeHead(telegramResponse.statusCode, telegramResponse.headers);
+            telegramResponse.pipe(res);
+            telegramResponse.on('end', resolve);
+            return;
+          }
 
-      // Add security header
-      responseHeaders['X-Content-Type-Options'] = 'nosniff';
+          // Pass through Telegram's response headers
+          const headers = { ...telegramResponse.headers };
+          headers['X-Content-Type-Options'] = 'nosniff';
 
-      // Set response headers and stream data
-      res.writeHead(200, responseHeaders);
-      res.end(data);
+          res.writeHead(200, headers);
+
+          // Stream directly - no memory buffering!
+          telegramResponse.pipe(res);
+
+          telegramResponse.on('end', resolve);
+          telegramResponse.on('error', (error) => {
+            console.error('Telegram stream error:', error);
+            reject(error);
+          });
+        }).on('error', (error) => {
+          console.error('Telegram request error:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              error: 'Failed to fetch asset',
+              message: error.message,
+            })
+          );
+          reject(error);
+        });
+      });
     } catch (error) {
       console.error('Telegram asset proxy error:', error);
 
