@@ -5,7 +5,7 @@
  * @module integrations/github/undo
  */
 
-import { createGitHubTools } from './tools.js';
+import { createGitHubTools } from './github-tools.js';
 
 /**
  * Operation types that can be undone

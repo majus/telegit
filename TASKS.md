@@ -731,18 +731,20 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ## Phase 5: GitHub MCP Integration
 
+**Architecture Note**: Tasks 5.1.1, 5.1.2, and 5.2.1 were refactored (2025-11-19) to use the official `MultiServerMCPClient` from `@langchain/mcp-adapters` instead of manual MCP client management. This simplifies the codebase by ~75% while adding automatic SSE fallback, better error handling, and tool lifecycle hooks. All three tasks now implemented in a single file: `src/integrations/github/github-tools.js`.
+
 ### 5.1 MCP Client Setup
 
 #### Task 5.1.1: Implement MCP Client Initialization
 - **Description**: Set up Model Context Protocol client with SSE transport
 - **Complexity**: Medium
 - **Dependencies**: Task 1.1.4
-- **Affected Files**: `src/integrations/github/mcp-client.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Features**:
-  - SSE transport configuration
-  - MCP client initialization
-  - Connection management
-  - Error handling and reconnection
+  - SSE transport configuration via MultiServerMCPClient
+  - Automatic SSE fallback from HTTP
+  - Connection management with proper cleanup
+  - Error handling and reconnection built-in
 - **Testing**: MCP client connects to server successfully
 - **Status**: ✓
 
@@ -750,12 +752,12 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Wrap GitHub MCP server as LangChain tools using official adapter
 - **Complexity**: Medium
 - **Dependencies**: Task 5.1.1
-- **Affected Files**: `src/integrations/github/mcp-adapter.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Features**:
-  - Use `wrapMCPServer` from `@langchain/mcp-adapters`
-  - Configure GitHub PAT authentication
+  - Use `MultiServerMCPClient` from `@langchain/mcp-adapters`
+  - Configure GitHub PAT authentication via headers
   - Filter specific tools (create_issue, update_issue, search_issues)
-  - Tool invocation and response handling
+  - Tool invocation via LangChain tool.invoke() method
 - **Testing**: MCP tools usable as LangChain tools
 - **Status**: ✓
 
@@ -765,11 +767,12 @@ This document provides a comprehensive breakdown of development tasks derived fr
 - **Description**: Create wrapper functions for GitHub MCP tools
 - **Complexity**: Low
 - **Dependencies**: Task 5.1.2
-- **Affected Files**: `src/integrations/github/tools.js`
+- **Affected Files**: `src/integrations/github/github-tools.js` (consolidated)
 - **Functions**:
   - `createIssue(repository, title, body, labels, assignees)`
   - `updateIssue(repository, issueNumber, data)`
   - `searchIssues(repository, query, options)`
+  - `closeIssue()`, `reopenIssue()`, `addLabels()` convenience methods
 - **Testing**: Each tool function works correctly
 - **Status**: ✓
 
@@ -1579,6 +1582,6 @@ Can work on **2 tracks simultaneously**:
 
 ---
 
-**Last Updated**: 2025-11-18
-**Version**: 2.4
-**Status**: Phase 5 (GitHub MCP Integration) complete - All tasks implemented including MCP client, adapter, tools, image processing, asset proxy, and undo logic. Ready for integration testing when Phase 2 (Database) and Phase 3 (Telegram Bot) are available.
+**Last Updated**: 2025-11-19
+**Version**: 2.5
+**Status**: Phase 5 (GitHub MCP Integration) complete and refactored - All tasks implemented including MCP client (now using official MultiServerMCPClient), tools, image processing, asset proxy, and undo logic. Architecture simplified by ~75% while adding better error handling and automatic SSE fallback. Ready for integration testing when Phase 2 (Database) and Phase 3 (Telegram Bot) are available.

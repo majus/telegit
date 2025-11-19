@@ -1,19 +1,115 @@
 /**
- * GitHub Tool Functions
- * Wrapper functions for GitHub MCP tools providing a simplified interface
+ * GitHub Tools Integration
+ * Uses LangChain MCP Adapters to connect to GitHub MCP server
  *
- * @module integrations/github/tools
+ * @module integrations/github/github-tools
  */
 
-import { createGitHubMCPAdapter } from './mcp-adapter.js';
+import { MultiServerMCPClient } from '@langchain/mcp-adapters';
+import { getConfig } from '../../../config/env.js';
 
 /**
  * GitHub Tools class
- * Provides high-level functions for GitHub issue operations
+ * Provides high-level interface for GitHub issue operations via MCP
  */
 export class GitHubTools {
-  constructor(adapter) {
-    this.adapter = adapter;
+  constructor() {
+    this.mcpClient = null;
+    this.tools = null;
+    this.authToken = null;
+    this.repository = null;
+  }
+
+  /**
+   * Initialize the GitHub tools with MCP client
+   * @param {string} authToken - GitHub Personal Access Token
+   * @param {string} [repository] - Optional repository in format "owner/repo"
+   * @returns {Promise<void>}
+   * @throws {Error} If initialization fails
+   */
+  async initialize(authToken, repository = null) {
+    if (!authToken) {
+      throw new Error('GitHub PAT (authToken) is required for initialization');
+    }
+
+    try {
+      const config = getConfig();
+      this.authToken = authToken;
+      this.repository = repository;
+
+      // Initialize MultiServerMCPClient with GitHub MCP server
+      this.mcpClient = new MultiServerMCPClient({
+        throwOnLoadError: true,
+        prefixToolNameWithServerName: false,
+        useStandardContentBlocks: true,
+        mcpServers: {
+          github: {
+            url: config.github.mcpServerUrl,
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+            automaticSSEFallback: true,
+          },
+        },
+      });
+
+      // Establish connection to MCP server
+      await this.mcpClient.initializeConnections();
+
+      // Load and cache tools
+      this.tools = await this.mcpClient.getTools();
+
+      // Filter to only GitHub issue tools
+      this.tools = this.tools.filter(tool =>
+        ['github_create_issue', 'github_update_issue', 'github_search_issues'].includes(
+          tool.name
+        )
+      );
+
+      if (this.tools.length === 0) {
+        throw new Error(
+          'No GitHub issue tools found. Expected: github_create_issue, github_update_issue, github_search_issues'
+        );
+      }
+
+      console.log(
+        `GitHub tools initialized with ${this.tools.length} tools: ${this.tools.map(t => t.name).join(', ')}`
+      );
+    } catch (error) {
+      throw new Error(`Failed to initialize GitHub tools: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all available LangChain tools
+   * @returns {Array} Array of LangChain tools
+   * @throws {Error} If not initialized
+   */
+  getTools() {
+    if (!this.tools) {
+      throw new Error('GitHub tools not initialized. Call initialize() first.');
+    }
+    return this.tools;
+  }
+
+  /**
+   * Get a specific tool by name
+   * @param {string} toolName - Tool name
+   * @returns {Object|null} Tool or null if not found
+   */
+  getTool(toolName) {
+    if (!this.tools) {
+      return null;
+    }
+    return this.tools.find(tool => tool.name === toolName) || null;
+  }
+
+  /**
+   * Check if tools are initialized
+   * @returns {boolean}
+   */
+  isInitialized() {
+    return this.tools !== null && this.tools.length > 0;
   }
 
   /**
@@ -37,7 +133,7 @@ export class GitHubTools {
     }
 
     try {
-      const tool = this.adapter.getTool('github_create_issue');
+      const tool = this.getTool('github_create_issue');
       if (!tool) {
         throw new Error('github_create_issue tool not available');
       }
@@ -85,7 +181,7 @@ export class GitHubTools {
     }
 
     try {
-      const tool = this.adapter.getTool('github_update_issue');
+      const tool = this.getTool('github_update_issue');
       if (!tool) {
         throw new Error('github_update_issue tool not available');
       }
@@ -131,7 +227,7 @@ export class GitHubTools {
     }
 
     try {
-      const tool = this.adapter.getTool('github_search_issues');
+      const tool = this.getTool('github_search_issues');
       if (!tool) {
         throw new Error('github_search_issues tool not available');
       }
@@ -228,23 +324,48 @@ export class GitHubTools {
   }
 
   /**
-   * Get the underlying MCP adapter
-   * @returns {GitHubMCPAdapter}
+   * Reinitialize with new credentials
+   * Useful when switching between different GitHub repositories or users
+   * @param {string} authToken - New GitHub PAT
+   * @param {string} [repository] - Optional new repository
+   * @returns {Promise<void>}
    */
-  getAdapter() {
-    return this.adapter;
+  async reinitialize(authToken, repository = null) {
+    await this.close();
+    await this.initialize(authToken, repository);
+  }
+
+  /**
+   * Close the MCP client and cleanup resources
+   * @returns {Promise<void>}
+   */
+  async close() {
+    if (this.mcpClient) {
+      await this.mcpClient.close();
+      this.mcpClient = null;
+      this.tools = null;
+    }
+  }
+
+  /**
+   * Get the underlying MCP client
+   * @returns {MultiServerMCPClient|null}
+   */
+  getMCPClient() {
+    return this.mcpClient;
   }
 }
 
 /**
- * Create GitHub tools instance
- * @param {string} [serverUrl] - Optional MCP server URL
+ * Create and initialize a GitHub tools instance
  * @param {string} authToken - GitHub Personal Access Token
- * @returns {Promise<GitHubTools>} Initialized GitHubTools instance
+ * @param {string} [repository] - Optional repository
+ * @returns {Promise<GitHubTools>} Initialized tools instance
  */
-export async function createGitHubTools(serverUrl = null, authToken) {
-  const adapter = await createGitHubMCPAdapter(serverUrl, authToken);
-  return new GitHubTools(adapter);
+export async function createGitHubTools(authToken, repository = null) {
+  const tools = new GitHubTools();
+  await tools.initialize(authToken, repository);
+  return tools;
 }
 
 /**
@@ -254,20 +375,24 @@ let sharedToolsInstance = null;
 
 /**
  * Get or create shared GitHub tools instance
- * @param {string} [serverUrl] - Optional MCP server URL
  * @param {string} authToken - GitHub Personal Access Token
+ * @param {string} [repository] - Optional repository
  * @returns {Promise<GitHubTools>} Shared tools instance
  */
-export async function getSharedGitHubTools(serverUrl = null, authToken) {
-  if (!sharedToolsInstance) {
-    sharedToolsInstance = await createGitHubTools(serverUrl, authToken);
+export async function getSharedGitHubTools(authToken, repository = null) {
+  if (!sharedToolsInstance || !sharedToolsInstance.isInitialized()) {
+    sharedToolsInstance = await createGitHubTools(authToken, repository);
   }
   return sharedToolsInstance;
 }
 
 /**
  * Reset shared tools instance
+ * Useful for testing or when switching contexts
  */
 export function resetSharedTools() {
-  sharedToolsInstance = null;
+  if (sharedToolsInstance) {
+    sharedToolsInstance.close().catch(err => console.error('Error closing tools:', err));
+    sharedToolsInstance = null;
+  }
 }
