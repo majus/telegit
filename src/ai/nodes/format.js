@@ -6,29 +6,7 @@
  */
 
 import { IntentType, GitHubOperationType } from '../state-schema.js';
-
-/**
- * Sanitizes markdown text to prevent XSS and injection attacks
- *
- * @param {string} text - Text to sanitize
- * @returns {string} Sanitized text
- */
-function sanitizeMarkdown(text) {
-  if (!text) return '';
-
-  // Remove potentially dangerous HTML tags
-  let sanitized = text.replace(/<script[^>]*>.*?<\/script>/gi, '');
-  sanitized = sanitized.replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
-  sanitized = sanitized.replace(/<object[^>]*>.*?<\/object>/gi, '');
-  sanitized = sanitized.replace(/<embed[^>]*>/gi, '');
-
-  // Escape HTML entities in code blocks to prevent XSS
-  sanitized = sanitized.replace(/`([^`]+)`/g, (match, code) => {
-    return `\`${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}\``;
-  });
-
-  return sanitized.trim();
-}
+import { sanitizeTitle, sanitizeMessageBody } from '../../utils/sanitize.js';
 
 /**
  * Formats issue title
@@ -38,14 +16,7 @@ function sanitizeMarkdown(text) {
  */
 function formatTitle(intent) {
   const title = intent.entities?.title || 'Untitled Issue';
-
-  // Ensure title is not too long
-  const maxLength = 100;
-  if (title.length > maxLength) {
-    return title.substring(0, maxLength - 3) + '...';
-  }
-
-  return sanitizeMarkdown(title);
+  return sanitizeTitle(title);
 }
 
 /**
@@ -57,7 +28,7 @@ function formatTitle(intent) {
  */
 function formatBody(intent, telegramMessage) {
   const description = intent.entities?.description || intent.entities?.title || '';
-  const sanitizedDescription = sanitizeMarkdown(description);
+  const sanitizedDescription = sanitizeMessageBody(description);
 
   // Build metadata footer
   const username = telegramMessage?.from?.username || 'Unknown';
