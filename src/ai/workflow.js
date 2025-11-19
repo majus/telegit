@@ -12,6 +12,7 @@ import { formatNode } from './nodes/format.js';
 import { storeNode } from './nodes/store.js';
 import { notifyNode } from './nodes/notify.js';
 import { errorNode } from './nodes/error.js';
+import { getConfig } from '../../config/env.js';
 
 /**
  * Creates the LangGraph workflow
@@ -75,7 +76,10 @@ function routeAfterAnalysis(state) {
   }
 
   // Check confidence threshold
-  if (state.intent.confidence < 0.3) {
+  const config = getConfig();
+  const threshold = config.llm.intentConfidenceThreshold;
+
+  if (state.intent.confidence < threshold) {
     // Low confidence - treat as unknown
     return 'unknown';
   }

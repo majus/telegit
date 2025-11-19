@@ -105,9 +105,11 @@ export function getDefaultLLMClient() {
  * @returns {ChatOpenAI} LLM client configured for classification
  */
 export function getClassifierLLMClient() {
+  const config = getConfig();
+
   return createLLMClient({
     temperature: 0.3, // Lower temperature for more consistent classification
-    model: 'gpt-4', // Use GPT-4 for better classification accuracy
+    model: config.llm.intentClassifierModel,
   });
 }
 

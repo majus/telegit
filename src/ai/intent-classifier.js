@@ -76,59 +76,19 @@ const intentParser = StructuredOutputParser.fromZodSchema(intentOutputSchema);
  * Loads the intent classification prompt template
  *
  * @returns {Promise<string>} Prompt template text
+ * @throws {Error} If prompt file cannot be loaded
  */
 async function loadPromptTemplate() {
+  const promptPath = join(__dirname, '../../prompts/intent-classification.txt');
+
   try {
-    const promptPath = join(__dirname, '../../prompts/intent-classification.txt');
     return await readFile(promptPath, 'utf-8');
   } catch (error) {
-    // Fallback to inline prompt if file doesn't exist yet
-    return getDefaultPromptTemplate();
+    throw new Error(
+      `Failed to load intent classification prompt from ${promptPath}: ${error.message}\n` +
+      'Make sure the prompts/intent-classification.txt file exists.'
+    );
   }
-}
-
-/**
- * Default prompt template (inline fallback)
- *
- * @returns {string} Default prompt template
- */
-function getDefaultPromptTemplate() {
-  return `You are an AI assistant that analyzes Telegram messages and classifies user intent for GitHub issue management.
-
-Your task is to analyze the message and determine what action the user wants to perform.
-
-INTENT TYPES:
-- create_bug: Report a software bug or error
-- create_task: Create a task or todo item
-- create_idea: Suggest a feature idea or enhancement
-- update_issue: Update an existing GitHub issue
-- search_issues: Search for existing GitHub issues
-- unknown: Intent cannot be determined
-
-INSTRUCTIONS:
-1. Analyze the message text and context
-2. Identify the primary intent
-3. Extract relevant entities (title, description, labels, etc.)
-4. Assign a confidence score (0-1)
-5. Provide brief reasoning for your classification
-
-ENTITY EXTRACTION:
-- title: A concise title summarizing the message (required for create intents)
-- description: Detailed description or body text (optional)
-- labels: Extract from hashtags (e.g., #bug, #urgent, #feature)
-- assignees: Extract from @mentions
-- issueNumber: Extract if referring to existing issue (e.g., "#42", "issue 42")
-- searchQuery: Extract search terms for search intent
-
-{format_instructions}
-
-MESSAGE CONTEXT:
-{context}
-
-MESSAGE TEXT:
-{message}
-
-CLASSIFICATION:`;
 }
 
 /**

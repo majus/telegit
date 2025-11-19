@@ -68,8 +68,6 @@ telegit/
 └── vitest.config.js        # Test configuration
 ```
 
-**Current State**: Phase 1 complete (project setup), Phase 2 complete (database layer), Phase 3 complete (Telegram bot service), Phase 4 complete (AI Processing Engine - except GitHub MCP dependencies). Ready for Phase 5 (GitHub MCP Integration).
-
 ## Technical Stack
 
 ### Core Technologies
@@ -179,90 +177,9 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - Use: `git push -u origin <branch-name>`
 - CRITICAL: Branch must start with `claude/` and end with matching session id
 
-## Implemented Components
-
-### Phase 1: Project Setup (Complete ✓)
-- Package configuration with all dependencies
-- Environment configuration with Zod validation
-- TypeScript type definitions
-- Vitest test framework
-- Promptfoo configuration
-- Mock data generators and test helpers
-
-### Phase 2: Database & Data Layer (Complete ✓)
-- PostgreSQL schema with migrations
-- Database client setup with connection pooling
-- Repositories: ConfigRepository, OperationsRepository, FeedbackRepository, ConversationContextRepository
-- AES-256-GCM encryption utility for secure PAT storage
-- Comprehensive unit tests
-
-### Phase 3: Telegram Bot Service (Partial ✓)
-- Bot initialization with Telegraf
-- Message filtering (triggers detection)
-- Reaction management system
-- Tests for core functionality
-
-### Phase 4: AI Processing Engine (Complete ✓ except GitHub MCP dependencies)
-
-#### Phase 4.1-4.2: LangChain Setup & Intent Classification
-
-**LLM Client** (`src/ai/llm-client.js`)
-- Multi-provider support (OpenAI, Anthropic framework)
-- Configurable temperature, retries, and timeouts
-- Specialized clients for classification and generation
-- Connection validation for health checks
-
-**State Schema** (`src/ai/state-schema.js`)
-- LangGraph state annotation with all channels
-- Intent types: create_bug, create_task, create_idea, update_issue, search_issues, unknown
-- State validation and initialization helpers
-
-**Intent Classifier** (`src/ai/intent-classifier.js`)
-- LLM-based message analysis and classification
-- Structured output using Zod schemas
-- Entity extraction (title, description, labels, assignees, issue numbers)
-- Automatic hashtag and mention extraction
-- Context-aware classification with conversation threads
-- Batch classification support
-
-**Prompts** (`prompts/intent-classification.txt`)
-- Comprehensive intent classification prompt
-- Clear intent type definitions with examples
-- Entity extraction rules
-- Confidence scoring guidelines
-- Context handling instructions
-
-**Tests**
-- Unit tests for intent classifier (`test/unit/ai/intent-classifier.test.js`)
-- Promptfoo evaluation configuration (`test/promptfoo/intent-classification.yaml`)
-- Target: >80% classification accuracy
-
-#### Phase 4.3-4.4: LangGraph Workflow & Message Processor
-
-**Workflow Graph** (`src/ai/workflow.js`)
-- LangGraph workflow orchestration with conditional routing
-- Nodes: analyze, format, store, notify, error
-- Automatic error handling and recovery
-- Workflow statistics and monitoring
-
-**Workflow Nodes** (`src/ai/nodes/`)
-- **Analyze Node**: Classifies user intent from Telegram messages
-- **Format Node**: Formats and sanitizes GitHub issue data (XSS-safe)
-- **Store Node**: Records operations in database
-- **Notify Node**: Sends Telegram feedback with appropriate reactions
-- **Error Node**: Handles errors gracefully with user-friendly messages
-
-**Message Processor** (`src/ai/processor.js`)
-- Main entry point for AI processing
-- Conversation context gathering
-- Group configuration retrieval
-- Workflow execution and monitoring
-- Batch processing support
-- Health check functionality
-
-**Note**: Nodes for GitHub operations (search, create, update, execute) require Phase 5 (GitHub MCP Integration) and will be implemented when Phase 5 is complete.
-
 ## AI Assistant Guidelines
+
+**IMPORTANT**: Do not reflect current project progress or future work in this file. This document should focus on general guidelines and conventions for AI assistants, not track implementation status. Use TASKS.md for tracking progress.
 
 ### General Principles
 - Read README.md for detailed feature specifications and requirements
@@ -292,11 +209,3 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - [Dokploy Documentation](https://docs.dokploy.com/docs/core)
 - [Vitest Documentation](https://vitest.dev/)
 - Project README.md for detailed feature specifications
-
-## Version History
-
-- **2025-11-18**: Initial CLAUDE.md created
-- **2025-11-18**: Distilled to remove speculative content, focus on current state and generic guidelines
-- **2025-11-18**: Updated with Phase 2 (Database layer) and Phase 3 (Telegram bot core) implementations
-- **2025-11-18**: Updated with Phase 4.1-4.2 implementation (LLM client, state schema, intent classifier, prompts, tests)
-- **2025-11-18**: Updated with Phase 4.3-4.4 implementation (LangGraph workflow, workflow nodes, message processor)
