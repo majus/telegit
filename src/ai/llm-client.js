@@ -33,7 +33,7 @@ export function createLLMClient(options = {}) {
   const config = getConfig();
 
   // Merge options with config defaults
-  const provider = options.provider || LLMProvider.OPENAI;
+  const provider = options.provider || config.llm.provider;
   const model = options.model || config.llm.model;
   const temperature = options.temperature !== undefined ? options.temperature : config.llm.temperature;
   const maxRetries = options.maxRetries || 3;
@@ -108,7 +108,7 @@ export function getClassifierLLMClient() {
   const config = getConfig();
 
   return createLLMClient({
-    temperature: 0.3, // Lower temperature for more consistent classification
+    temperature: config.llm.intentClassifierTemperature,
     model: config.llm.intentClassifierModel,
   });
 }
@@ -120,8 +120,10 @@ export function getClassifierLLMClient() {
  * @returns {ChatOpenAI} LLM client configured for generation
  */
 export function getGeneratorLLMClient() {
+  const config = getConfig();
+
   return createLLMClient({
-    temperature: 0.7, // Higher temperature for more creative content
+    temperature: config.llm.generatorTemperature,
   });
 }
 
