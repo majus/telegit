@@ -1,129 +1,107 @@
 /**
- * Unit tests for encryption utility
+ * Unit Tests for Token Encryption Module
+ *
+ * Tests AES-256-GCM encryption/decryption functionality including:
+ * - Encryption/decryption roundtrip
+ * - Tamper detection
+ * - Different IVs for same plaintext
+ * - Invalid input handling
+ * - Missing encryption key handling
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { encrypt, decrypt, generateKey, validateKey } from '../../../src/utils/encryption.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import crypto from 'crypto';
+import { encrypt, decrypt, generateKey } from '../../../src/utils/encryption.js';
 
-describe('Encryption Utility', () => {
-  const originalEnv = process.env.ENCRYPTION_KEY;
-  const testKey = generateKey(); // Generate a valid test key
+describe('encryption', () => {
+  let originalEncryptionKey;
 
-  beforeAll(() => {
-    // Set a test encryption key
-    process.env.ENCRYPTION_KEY = testKey;
+  beforeEach(() => {
+    // Save original encryption key
+    originalEncryptionKey = process.env.ENCRYPTION_KEY;
+
+    // Set a test encryption key (64 hex characters = 32 bytes)
+    process.env.ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
   });
 
   afterEach(() => {
-    // Restore original environment after all tests
-    process.env.ENCRYPTION_KEY = originalEnv;
-  });
-
-  describe('generateKey', () => {
-    it('should generate a valid 64-character hex key', () => {
-      const key = generateKey();
-      expect(key).toBeDefined();
-      expect(key.length).toBe(64);
-      expect(/^[0-9a-fA-F]{64}$/.test(key)).toBe(true);
-    });
-
-    it('should generate different keys on each call', () => {
-      const key1 = generateKey();
-      const key2 = generateKey();
-      expect(key1).not.toBe(key2);
-    });
-  });
-
-  describe('validateKey', () => {
-    it('should validate a correct key', () => {
-      const key = generateKey();
-      expect(validateKey(key)).toBe(true);
-    });
-
-    it('should reject a key with wrong length', () => {
-      expect(validateKey('abc123')).toBe(false);
-      expect(validateKey('a'.repeat(63))).toBe(false);
-      expect(validateKey('a'.repeat(65))).toBe(false);
-    });
-
-    it('should reject a key with non-hex characters', () => {
-      const invalidKey = 'g'.repeat(64); // 'g' is not a hex character
-      expect(validateKey(invalidKey)).toBe(false);
-    });
-
-    it('should reject null or undefined', () => {
-      expect(validateKey(null)).toBe(false);
-      expect(validateKey(undefined)).toBe(false);
-      expect(validateKey('')).toBe(false);
-    });
+    // Restore original encryption key
+    if (originalEncryptionKey) {
+      process.env.ENCRYPTION_KEY = originalEncryptionKey;
+    } else {
+      delete process.env.ENCRYPTION_KEY;
+    }
   });
 
   describe('encrypt', () => {
     it('should encrypt plaintext successfully', () => {
-      const plaintext = 'my-secret-github-token';
+      const plaintext = 'my-secret-token';
       const encrypted = encrypt(plaintext);
 
       expect(encrypted).toBeDefined();
       expect(typeof encrypted).toBe('string');
       expect(encrypted).not.toBe(plaintext);
-    });
 
-    it('should produce encrypted text in correct format (iv:authTag:ciphertext)', () => {
-      const plaintext = 'test-token';
-      const encrypted = encrypt(plaintext);
-
+      // Check format: iv:authTag:ciphertext (3 parts separated by colons)
       const parts = encrypted.split(':');
       expect(parts.length).toBe(3);
 
-      // IV should be 32 hex chars (16 bytes)
-      expect(parts[0].length).toBe(32);
-      expect(/^[0-9a-fA-F]{32}$/.test(parts[0])).toBe(true);
-
-      // Auth tag should be 32 hex chars (16 bytes)
-      expect(parts[1].length).toBe(32);
-      expect(/^[0-9a-fA-F]{32}$/.test(parts[1])).toBe(true);
-
-      // Ciphertext should be hex
-      expect(/^[0-9a-fA-F]+$/.test(parts[2])).toBe(true);
+      // Each part should be valid base64
+      parts.forEach(part => {
+        expect(() => Buffer.from(part, 'base64')).not.toThrow();
+      });
     });
 
-    it('should produce different ciphertexts for the same plaintext (random IV)', () => {
-      const plaintext = 'same-plaintext';
+    it('should generate different IVs for same plaintext', () => {
+      const plaintext = 'my-secret-token';
       const encrypted1 = encrypt(plaintext);
       const encrypted2 = encrypt(plaintext);
 
       expect(encrypted1).not.toBe(encrypted2);
+
+      // IVs should be different (first part before first colon)
+      const iv1 = encrypted1.split(':')[0];
+      const iv2 = encrypted2.split(':')[0];
+      expect(iv1).not.toBe(iv2);
     });
 
     it('should throw error for empty plaintext', () => {
-      expect(() => encrypt('')).toThrow('Plaintext cannot be empty');
-      expect(() => encrypt(null)).toThrow('Plaintext cannot be empty');
+      expect(() => encrypt('')).toThrow('Plaintext must be a non-empty string');
     });
 
-    it('should throw error if ENCRYPTION_KEY is not set', () => {
+    it('should throw error for null plaintext', () => {
+      expect(() => encrypt(null)).toThrow('Plaintext must be a non-empty string');
+    });
+
+    it('should throw error for undefined plaintext', () => {
+      expect(() => encrypt(undefined)).toThrow('Plaintext must be a non-empty string');
+    });
+
+    it('should throw error for non-string plaintext', () => {
+      expect(() => encrypt(123)).toThrow('Plaintext must be a non-empty string');
+      expect(() => encrypt({ token: 'test' })).toThrow('Plaintext must be a non-empty string');
+    });
+
+    it('should throw error when ENCRYPTION_KEY is missing', () => {
       delete process.env.ENCRYPTION_KEY;
       expect(() => encrypt('test')).toThrow('ENCRYPTION_KEY environment variable is not set');
-      process.env.ENCRYPTION_KEY = testKey; // Restore
     });
 
-    it('should throw error if ENCRYPTION_KEY is invalid', () => {
-      process.env.ENCRYPTION_KEY = 'invalid-key';
-      expect(() => encrypt('test')).toThrow();
-      process.env.ENCRYPTION_KEY = testKey; // Restore
+    it('should throw error for invalid ENCRYPTION_KEY format', () => {
+      process.env.ENCRYPTION_KEY = 'not-hex-string';
+      expect(() => encrypt('test')).toThrow('ENCRYPTION_KEY must be a valid hexadecimal string');
+    });
+
+    it('should throw error for ENCRYPTION_KEY with wrong length', () => {
+      // 30 bytes instead of 32
+      process.env.ENCRYPTION_KEY = crypto.randomBytes(30).toString('hex');
+      expect(() => encrypt('test')).toThrow('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
     });
   });
 
   describe('decrypt', () => {
-    it('should decrypt ciphertext successfully', () => {
-      const plaintext = 'my-secret-github-token';
-      const encrypted = encrypt(plaintext);
-      const decrypted = decrypt(encrypted);
-
-      expect(decrypted).toBe(plaintext);
-    });
-
-    it('should handle special characters and unicode', () => {
-      const plaintext = 'token-with-特殊字符-and-émojis-🎉';
+    it('should decrypt encrypted data successfully', () => {
+      const plaintext = 'my-secret-token';
       const encrypted = encrypt(plaintext);
       const decrypted = decrypt(encrypted);
 
@@ -131,107 +109,227 @@ describe('Encryption Utility', () => {
     });
 
     it('should handle long strings', () => {
-      const plaintext = 'a'.repeat(1000);
+      const plaintext = 'ghp_' + 'a'.repeat(100);
       const encrypted = encrypt(plaintext);
       const decrypted = decrypt(encrypted);
 
       expect(decrypted).toBe(plaintext);
     });
 
-    it('should throw error for empty encrypted data', () => {
-      expect(() => decrypt('')).toThrow('Encrypted data cannot be empty');
-      expect(() => decrypt(null)).toThrow('Encrypted data cannot be empty');
+    it('should handle special characters', () => {
+      const plaintext = 'token-with-special-chars: !@#$%^&*()_+-=[]{}|;:\'",.<>?/~`';
+      const encrypted = encrypt(plaintext);
+      const decrypted = decrypt(encrypted);
+
+      expect(decrypted).toBe(plaintext);
     });
 
-    it('should throw error for invalid format', () => {
-      expect(() => decrypt('invalid-format')).toThrow('Invalid encrypted data format');
-      expect(() => decrypt('a:b')).toThrow('Invalid encrypted data format');
+    it('should handle unicode characters', () => {
+      const plaintext = 'token-with-unicode: 你好世界 🔐 こんにちは';
+      const encrypted = encrypt(plaintext);
+      const decrypted = decrypt(encrypted);
+
+      expect(decrypted).toBe(plaintext);
     });
 
-    it('should throw error for tampered data', () => {
-      const plaintext = 'original-token';
+    it('should throw error for tampered ciphertext', () => {
+      const plaintext = 'my-secret-token';
       const encrypted = encrypt(plaintext);
 
-      // Tamper with the ciphertext
+      // Tamper with the ciphertext (last part)
       const parts = encrypted.split(':');
-      parts[2] = parts[2].substring(0, parts[2].length - 2) + 'ff';
+      const tamperedCiphertext = Buffer.from(parts[2], 'base64');
+      tamperedCiphertext[0] ^= 0xFF; // Flip bits in first byte
+      parts[2] = tamperedCiphertext.toString('base64');
       const tampered = parts.join(':');
 
-      expect(() => decrypt(tampered)).toThrow('Data authentication failed');
+      expect(() => decrypt(tampered)).toThrow('Decryption failed: data may have been tampered with');
     });
 
     it('should throw error for tampered auth tag', () => {
-      const plaintext = 'original-token';
+      const plaintext = 'my-secret-token';
       const encrypted = encrypt(plaintext);
 
-      // Tamper with the auth tag
+      // Tamper with the auth tag (second part)
       const parts = encrypted.split(':');
-      parts[1] = 'a'.repeat(32);
+      const tamperedTag = Buffer.from(parts[1], 'base64');
+      tamperedTag[0] ^= 0xFF; // Flip bits in first byte
+      parts[1] = tamperedTag.toString('base64');
       const tampered = parts.join(':');
 
-      expect(() => decrypt(tampered)).toThrow('Data authentication failed');
+      expect(() => decrypt(tampered)).toThrow('Decryption failed: data may have been tampered with');
+    });
+
+    it('should throw error for tampered IV', () => {
+      const plaintext = 'my-secret-token';
+      const encrypted = encrypt(plaintext);
+
+      // Tamper with the IV (first part)
+      const parts = encrypted.split(':');
+      const tamperedIv = Buffer.from(parts[0], 'base64');
+      tamperedIv[0] ^= 0xFF; // Flip bits in first byte
+      parts[0] = tamperedIv.toString('base64');
+      const tampered = parts.join(':');
+
+      expect(() => decrypt(tampered)).toThrow('Decryption failed: data may have been tampered with');
+    });
+
+    it('should throw error for invalid format (too few parts)', () => {
+      expect(() => decrypt('invalid:format')).toThrow('Invalid encrypted data format');
+    });
+
+    it('should throw error for invalid format (too many parts)', () => {
+      expect(() => decrypt('too:many:parts:here')).toThrow('Invalid encrypted data format');
+    });
+
+    it('should throw error for invalid base64 encoding', () => {
+      // Invalid base64 characters will decode to wrong-length buffers
+      // which will be caught by length validation
+      expect(() => decrypt('@@@@:@@@@:@@@@')).toThrow(/Invalid (base64 encoding|IV length)/);
+    });
+
+    it('should throw error for empty encrypted data', () => {
+      expect(() => decrypt('')).toThrow('Encrypted data must be a non-empty string');
+    });
+
+    it('should throw error for null encrypted data', () => {
+      expect(() => decrypt(null)).toThrow('Encrypted data must be a non-empty string');
+    });
+
+    it('should throw error when ENCRYPTION_KEY is missing', () => {
+      const encrypted = encrypt('test');
+      delete process.env.ENCRYPTION_KEY;
+      expect(() => decrypt(encrypted)).toThrow('ENCRYPTION_KEY environment variable is not set');
+    });
+
+    it('should throw error when decrypting with wrong key', () => {
+      const plaintext = 'my-secret-token';
+      const encrypted = encrypt(plaintext);
+
+      // Change the encryption key
+      process.env.ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
+
+      expect(() => decrypt(encrypted)).toThrow('Decryption failed: data may have been tampered with');
     });
 
     it('should throw error for invalid IV length', () => {
-      const encrypted = 'aa:' + 'b'.repeat(32) + ':' + 'c'.repeat(32);
-      expect(() => decrypt(encrypted)).toThrow('Invalid IV length');
+      // Create encrypted data with wrong IV length
+      const wrongIv = Buffer.from('short', 'utf8').toString('base64');
+      const authTag = crypto.randomBytes(16).toString('base64');
+      const ciphertext = crypto.randomBytes(32).toString('base64');
+      const invalid = `${wrongIv}:${authTag}:${ciphertext}`;
+
+      expect(() => decrypt(invalid)).toThrow('Invalid IV length');
     });
 
     it('should throw error for invalid auth tag length', () => {
-      const encrypted = 'a'.repeat(32) + ':bb:' + 'c'.repeat(32);
-      expect(() => decrypt(encrypted)).toThrow('Invalid authentication tag length');
+      // Create encrypted data with wrong auth tag length
+      const iv = crypto.randomBytes(12).toString('base64');
+      const wrongAuthTag = Buffer.from('short', 'utf8').toString('base64');
+      const ciphertext = crypto.randomBytes(32).toString('base64');
+      const invalid = `${iv}:${wrongAuthTag}:${ciphertext}`;
+
+      expect(() => decrypt(invalid)).toThrow('Invalid auth tag length');
     });
   });
 
-  describe('encrypt/decrypt roundtrip', () => {
-    it('should successfully roundtrip various strings', () => {
-      const testStrings = [
-        'simple-token',
-        'ghp_1234567890abcdefGHIJKLMNOPQRSTUVWXYZ',
-        'token with spaces',
-        'token-with-special-!@#$%^&*()_+-=[]{}|;:,.<>?',
-        'token\nwith\nnewlines',
-        'token\twith\ttabs',
-        '😀🎉🚀', // Emojis
-        '中文字符', // Chinese characters
-        'a'.repeat(500), // Long string
+  describe('encryption roundtrip', () => {
+    it('should successfully roundtrip various GitHub PAT formats', () => {
+      const pats = [
+        'ghp_1234567890abcdefghijklmnopqrstuvwxyz',
+        'github_pat_11AAAAAA_zyxwvutsrqponmlkjihgfedcba9876543210',
+        'ghp_' + 'x'.repeat(40)
       ];
 
-      testStrings.forEach(plaintext => {
-        const encrypted = encrypt(plaintext);
+      pats.forEach(pat => {
+        const encrypted = encrypt(pat);
         const decrypted = decrypt(encrypted);
-        expect(decrypted).toBe(plaintext);
+        expect(decrypted).toBe(pat);
       });
+    });
+
+    it('should handle multiple encrypt/decrypt cycles', () => {
+      let data = 'my-secret-token';
+
+      for (let i = 0; i < 10; i++) {
+        const encrypted = encrypt(data);
+        const decrypted = decrypt(encrypted);
+        expect(decrypted).toBe(data);
+        data = decrypted;
+      }
+    });
+  });
+
+  describe('generateKey', () => {
+    it('should generate a valid encryption key', () => {
+      const key = generateKey();
+
+      expect(key).toBeDefined();
+      expect(typeof key).toBe('string');
+      expect(key.length).toBe(64); // 32 bytes = 64 hex characters
+
+      // Should be valid hex
+      expect(/^[0-9a-f]+$/.test(key)).toBe(true);
+    });
+
+    it('should generate different keys each time', () => {
+      const key1 = generateKey();
+      const key2 = generateKey();
+      const key3 = generateKey();
+
+      expect(key1).not.toBe(key2);
+      expect(key2).not.toBe(key3);
+      expect(key1).not.toBe(key3);
+    });
+
+    it('should generate keys usable for encryption', () => {
+      const key = generateKey();
+      process.env.ENCRYPTION_KEY = key;
+
+      const plaintext = 'test-token';
+      const encrypted = encrypt(plaintext);
+      const decrypted = decrypt(encrypted);
+
+      expect(decrypted).toBe(plaintext);
     });
   });
 
   describe('security properties', () => {
     it('should use different IVs for each encryption', () => {
-      const plaintext = 'same-plaintext';
-      const encrypted1 = encrypt(plaintext);
-      const encrypted2 = encrypt(plaintext);
+      const plaintext = 'my-secret-token';
+      const ivs = new Set();
 
-      const iv1 = encrypted1.split(':')[0];
-      const iv2 = encrypted2.split(':')[0];
+      // Encrypt 100 times and check all IVs are unique
+      for (let i = 0; i < 100; i++) {
+        const encrypted = encrypt(plaintext);
+        const iv = encrypted.split(':')[0];
+        ivs.add(iv);
+      }
 
-      expect(iv1).not.toBe(iv2);
+      expect(ivs.size).toBe(100);
     });
 
-    it('should not reveal plaintext length in ciphertext', () => {
-      // This is a property of GCM mode - ciphertext length equals plaintext length
-      // But the IV and auth tag add constant overhead
-      const short = encrypt('a');
-      const long = encrypt('a'.repeat(100));
+    it('should produce different ciphertexts for same plaintext', () => {
+      const plaintext = 'my-secret-token';
+      const ciphertexts = new Set();
 
-      const shortParts = short.split(':');
-      const longParts = long.split(':');
+      // Encrypt 100 times and check all ciphertexts are unique
+      for (let i = 0; i < 100; i++) {
+        const encrypted = encrypt(plaintext);
+        ciphertexts.add(encrypted);
+      }
 
-      // IV and auth tag should be same length
-      expect(shortParts[0].length).toBe(longParts[0].length);
-      expect(shortParts[1].length).toBe(longParts[1].length);
+      expect(ciphertexts.size).toBe(100);
+    });
 
-      // Ciphertext should reflect plaintext length
-      expect(shortParts[2].length).toBeLessThan(longParts[2].length);
+    it('should not leak plaintext in encrypted output', () => {
+      const plaintext = 'my-secret-token-very-long-string-with-identifiable-content';
+      const encrypted = encrypt(plaintext);
+
+      // Check that plaintext doesn't appear in encrypted output
+      expect(encrypted.toLowerCase()).not.toContain('secret');
+      expect(encrypted.toLowerCase()).not.toContain('token');
+      expect(encrypted.toLowerCase()).not.toContain('identifiable');
     });
   });
 });

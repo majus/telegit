@@ -75,7 +75,26 @@ You may include hashtags to categorize your intent more explicitly, e.g., `#todo
 
 ## Access Control
 
-The bot may be limited by Telegram groups and/or accounts it will process messages from. This is called whitelisting and can be set up via environment variables.
+Restrict bot access using environment variables:
+
+```bash
+ALLOWED_GROUPS="-123456789,-987654321"  # Comma-separated group IDs (negative numbers)
+ALLOWED_USERS="123456789,987654321"     # Comma-separated user IDs (positive numbers)
+```
+
+If not set, all groups/users are allowed. Both whitelists can be combined.
+
+## Security
+
+**Token Encryption:** GitHub PATs encrypted at rest using AES-256-GCM. Generate encryption key:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ENCRYPTION_KEY="your-64-character-hex-string"
+```
+
+**Input Sanitization:** All messages sanitized to prevent XSS/injection attacks. Removes script tags, dangerous HTML/attributes, and invalid URLs while preserving markdown.
+
+**Best Practices:** Use least-privilege GitHub PATs (`repo` scope), whitelist authorized groups/users, never commit `.env` files, rotate credentials periodically, and keep dependencies updated.
 
 ## GitHub Authentication
 

@@ -226,5 +226,5 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - [Telegraf Library](https://www.npmjs.com/package/telegraf)
 - [GitHub MCP Server](https://raw.githubusercontent.com/github/github-mcp-server/refs/heads/main/README.md)
 - [Dokploy Documentation](https://docs.dokploy.com/docs/core)
-- [Vitest Documentation](https://vitest.dev/)
+- [Vitest Documentation](https://vitest.dev())
 - Project README.md for detailed feature specifications
