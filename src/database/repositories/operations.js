@@ -79,17 +79,31 @@ export class OperationsRepository {
    * Update operation status
    * @param {string} operationId - Operation UUID
    * @param {string} status - New status (pending, processing, completed, failed, undone)
+   * @param {Object} [metadata] - Optional metadata to merge with operation_data
    * @returns {Promise<Object>} Updated operation
    */
-  async updateOperationStatus(operationId, status) {
+  async updateOperationStatus(operationId, status, metadata = null) {
     try {
-      const result = await query(
-        `UPDATE operations
+      let updateQuery;
+      let params;
+
+      if (metadata) {
+        // Merge metadata with existing operation_data
+        updateQuery = `UPDATE operations
+         SET status = $2,
+             operation_data = operation_data || $3::jsonb
+         WHERE id = $1
+         RETURNING *`;
+        params = [operationId, status, JSON.stringify(metadata)];
+      } else {
+        updateQuery = `UPDATE operations
          SET status = $2
          WHERE id = $1
-         RETURNING *`,
-        [operationId, status]
-      );
+         RETURNING *`;
+        params = [operationId, status];
+      }
+
+      const result = await query(updateQuery, params);
 
       if (result.rows.length === 0) {
         throw new Error(`Operation not found: ${operationId}`);
@@ -101,6 +115,7 @@ export class OperationsRepository {
         id: operation.id,
         telegramGroupId: operation.telegram_group_id,
         telegramMessageId: operation.telegram_message_id,
+        telegramUserId: operation.telegram_user_id,
         operationType: operation.operation_type,
         githubIssueUrl: operation.github_issue_url,
         operationData: operation.operation_data,

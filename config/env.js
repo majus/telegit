@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { validateEncryptionConfig } from '../src/utils/encryption.js';
 
 // Load .env file
 dotenv.config();
@@ -119,6 +120,10 @@ export function loadConfig() {
  */
 export function validateEnv() {
   loadConfig();
+
+  // Validate encryption configuration at startup
+  validateEncryptionConfig();
+
   return true;
 }
 

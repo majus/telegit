@@ -31,19 +31,27 @@ telegit/
 │   │       ├── operations.js # Operations tracking repository
 │   │       ├── feedback.js # Feedback messages repository
 │   │       └── context.js  # Conversation context repository
+│   ├── services/
+│   │   └── telegram/       # Telegram bot service (partial implementation)
+│   ├── types/              # TypeScript type definitions
 │   └── utils/              # Utility functions
 │       └── encryption.js   # AES-256-GCM encryption utility
 ├── test/                    # Test files
-│   └── unit/               # Unit tests
-│       ├── database/       # Database tests
-│       │   └── repositories.test.js
-│       └── utils/          # Utility tests
-│           └── encryption.test.js
+│   ├── unit/               # Unit tests
+│   │   ├── database/       # Database tests
+│   │   │   └── repositories.test.js
+│   │   ├── telegram/       # Telegram bot tests
+│   │   └── utils/          # Utility tests
+│   │       └── encryption.test.js
+│   ├── mocks/              # Mock data generators
+│   └── helpers/            # Test helpers
+├── config/                 # Configuration files
 ├── package.json            # Project configuration and dependencies
 ├── README.md               # Comprehensive project documentation
 └── CLAUDE.md               # This file - AI assistant guide
 ```
 
+**Current State**: Phase 1 complete (project setup), Phase 2 partially implemented (database layer complete), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management).
 ## Technical Stack
 
 ### Core Technologies
@@ -77,6 +85,64 @@ telegit/
 - Use Vitest for testing
 - Use emojis for bot status indicators as specified in README.md
 - Follow minimalist, non-disruptive design philosophy
+
+### Error Message Guidelines
+
+Provide **consistent, actionable error messages** throughout the codebase:
+
+1. **Clear Description**: Explain what went wrong in plain language
+   - ✅ `ENCRYPTION_KEY environment variable is not set.`
+   - ❌ `Missing key`
+
+2. **Specific Context**: Include relevant details (field names, expected types, etc.)
+   - ✅ `Missing required fields: operationId, chatId, feedbackMessageId, scheduledDeletion`
+   - ❌ `Missing fields`
+
+3. **Actionable Steps**: Provide clear steps to resolve the issue
+   - For single-step fixes: Direct command or action
+   - For multi-step fixes: Numbered list
+   - Example:
+     ```
+     ENCRYPTION_KEY is invalid. It must be 64 hexadecimal characters (32 bytes).
+     Generate a new one using: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+     ```
+
+4. **Relevant Links**: Include URLs to documentation or external resources when applicable
+   - Example: `Revoke the PAT at: https://github.com/settings/tokens`
+
+5. **Severity Indicators**: Use clear markers for critical errors
+   - ✅ `❌ CRITICAL SECURITY ERROR: Could not delete your PAT message from chat history.`
+   - For Telegram bot messages: Use ❌ for errors, ✅ for success
+
+6. **Type Validation**: Provide specific type requirements
+   - ✅ `chatId and feedbackMessageId must be numbers`
+   - ❌ `Invalid type`
+
+**Examples:**
+
+```javascript
+// Environment configuration error
+throw new Error(
+  'ENCRYPTION_KEY environment variable is not set. ' +
+  'Generate one using: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+);
+
+// Security-critical error with multiple steps
+return {
+  success: false,
+  message: `❌ CRITICAL SECURITY ERROR: Could not delete your PAT message from chat history.
+
+For your security, please:
+1. Revoke the PAT you just sent at: https://github.com/settings/tokens
+2. Delete the message manually if possible
+3. Try the setup process again
+
+Your PAT is currently visible in chat history - please revoke it immediately.`,
+};
+
+// Validation error with specific context
+throw new Error('Missing required fields: operationId, chatId, feedbackMessageId, scheduledDeletion');
+```
 
 ## Git Workflow
 
