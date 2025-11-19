@@ -113,6 +113,19 @@ telegit/
 - Use emojis for bot status indicators as specified in README.md
 - Follow minimalist, non-disruptive design philosophy
 
+### TASKS.md Maintenance
+
+**IMPORTANT**: When updating TASKS.md:
+- ✅ **DO**: Mark task status changes (☐ → ⚠ → ✓)
+- ✅ **DO**: Update task descriptions when implementation changes
+- ✅ **DO**: Add architecture notes to specific task sections when refactoring occurs
+- ❌ **DO NOT**: Add "Progress Tracking" sections
+- ❌ **DO NOT**: Add "Last Updated" / "Version" / "Status" metadata
+- ❌ **DO NOT**: Create summary statistics or aggregate counts
+- ❌ **DO NOT**: Add any extra sections beyond the existing task structure
+
+Keep TASKS.md focused on task details only. Progress is tracked by task status marks (☐/⚠/✓), not aggregate metrics.
+
 ### Error Message Guidelines
 
 Provide **consistent, actionable error messages** throughout the codebase:
