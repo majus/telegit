@@ -30,9 +30,18 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
 
   // LLM Configuration
+  LLM_PROVIDER: z.enum(['openai', 'anthropic']).optional().default('openai'),
   OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
   OPENAI_MODEL: z.string().optional().default('gpt-4'),
   OPENAI_TEMPERATURE: z.string().optional().default('0.7'),
+
+  // Intent Classifier Configuration
+  INTENT_CLASSIFIER_MODEL: z.string().optional().default('gpt-4'),
+  INTENT_CLASSIFIER_TEMPERATURE: z.string().optional().default('0.3'),
+  INTENT_CONFIDENCE_THRESHOLD: z.string().optional().default('0.3'),
+
+  // Generator Configuration
+  GENERATOR_TEMPERATURE: z.string().optional().default('0.7'),
 
   // Application Configuration
   NODE_ENV: z.enum(['development', 'production', 'test']).optional().default('development'),
@@ -88,9 +97,14 @@ export function loadConfig() {
         encryptionKey: env.ENCRYPTION_KEY,
       },
       llm: {
+        provider: env.LLM_PROVIDER,
         apiKey: env.OPENAI_API_KEY,
         model: env.OPENAI_MODEL,
         temperature: parseFloat(env.OPENAI_TEMPERATURE),
+        intentClassifierModel: env.INTENT_CLASSIFIER_MODEL,
+        intentClassifierTemperature: parseFloat(env.INTENT_CLASSIFIER_TEMPERATURE),
+        intentConfidenceThreshold: parseFloat(env.INTENT_CONFIDENCE_THRESHOLD),
+        generatorTemperature: parseFloat(env.GENERATOR_TEMPERATURE),
       },
       app: {
         nodeEnv: env.NODE_ENV,
