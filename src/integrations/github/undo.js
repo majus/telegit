@@ -1,6 +1,6 @@
 /**
  * Undo Operation Logic for GitHub Actions
- * Handles reverting GitHub issue operations
+ * Handles reverting GitHub issue operations by fetching from database
  *
  * @module integrations/github/undo
  */
@@ -28,55 +28,23 @@ export const NonUndoableOperations = {
 
 /**
  * Undo Manager class
- * Manages undo operations for GitHub actions
+ * Manages undo operations for GitHub actions by fetching from database
  */
 export class UndoManager {
-  constructor() {
-    this.operationHistory = new Map();
-  }
-
-  /**
-   * Record an operation for potential undo
-   * @param {string} operationId - Unique operation ID
-   * @param {Object} operation - Operation details
-   * @param {string} operation.type - Operation type (from UndoableOperations)
-   * @param {string} operation.repository - Repository (owner/repo)
-   * @param {number} operation.issueNumber - Issue number (if applicable)
-   * @param {Object} [operation.previousState] - Previous state for revert
-   * @param {Object} [operation.metadata] - Additional metadata
-   */
-  recordOperation(operationId, operation) {
-    if (!operationId || !operation) {
-      throw new Error('operationId and operation are required');
+  constructor(operationsRepository) {
+    if (!operationsRepository) {
+      throw new Error('OperationsRepository is required for UndoManager');
     }
-
-    if (!operation.type || !operation.repository) {
-      throw new Error('operation.type and operation.repository are required');
-    }
-
-    this.operationHistory.set(operationId, {
-      ...operation,
-      timestamp: Date.now(),
-      undone: false,
-    });
-  }
-
-  /**
-   * Get operation details by ID
-   * @param {string} operationId - Operation ID
-   * @returns {Object|null} Operation details or null
-   */
-  getOperation(operationId) {
-    return this.operationHistory.get(operationId) || null;
+    this.operationsRepo = operationsRepository;
   }
 
   /**
    * Check if an operation can be undone
    * @param {string} operationId - Operation ID
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  canUndo(operationId) {
-    const operation = this.getOperation(operationId);
+  async canUndo(operationId) {
+    const operation = await this.operationsRepo.getOperation(operationId);
 
     if (!operation) {
       return false;
@@ -92,18 +60,6 @@ export class UndoManager {
   }
 
   /**
-   * Mark operation as undone
-   * @param {string} operationId - Operation ID
-   */
-  markAsUndone(operationId) {
-    const operation = this.getOperation(operationId);
-    if (operation) {
-      operation.undone = true;
-      operation.undoneAt = Date.now();
-    }
-  }
-
-  /**
    * Undo a GitHub operation
    * @param {string} operationId - Operation ID to undo
    * @param {string} authToken - GitHub PAT for authentication
@@ -111,14 +67,16 @@ export class UndoManager {
    * @returns {Promise<Object>} Undo result
    */
   async undoOperation(operationId, authToken, serverUrl = null) {
-    if (!this.canUndo(operationId)) {
+    const canUndo = await this.canUndo(operationId);
+
+    if (!canUndo) {
       return {
         success: false,
         error: 'Operation cannot be undone or does not exist',
       };
     }
 
-    const operation = this.getOperation(operationId);
+    const operation = await this.operationsRepo.getOperation(operationId);
 
     try {
       let result;
@@ -156,7 +114,7 @@ export class UndoManager {
       }
 
       if (result.success) {
-        this.markAsUndone(operationId);
+        await this.operationsRepo.markAsUndone(operationId);
       }
 
       return result;
@@ -169,41 +127,55 @@ export class UndoManager {
   }
 
   /**
-   * Undo issue creation by closing it with a comment
-   * @param {Object} operation - Operation details
+   * Undo issue creation by closing it
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoCreateIssue(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
+    const githubTools = await createGitHubTools(authToken, serverUrl);
+    const tools = githubTools.getTools();
+    const updateTool = tools.find(t => t.name === 'github_update_issue');
 
-    if (!operation.issueNumber) {
+    if (!updateTool) {
+      await githubTools.close();
       return {
         success: false,
-        error: 'Issue number not found in operation metadata',
+        error: 'github_update_issue tool not available',
+      };
+    }
+
+    if (!operation.metadata?.issueNumber || !operation.metadata?.repository) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Issue number or repository not found in operation metadata',
       };
     }
 
     try {
-      // Close the issue with explanatory comment in the body
-      const result = await tools.updateIssue(
-        operation.repository,
-        operation.issueNumber,
-        {
-          state: 'closed',
-          body: `${operation.previousState?.body || ''}\n\n---\n\n**Note**: This issue was automatically undone by TeleGit at the user's request.`,
-        }
-      );
+      const body = operation.metadata.previousBody || '';
+      const updatedBody = `${body}\n\n---\n\n**Note**: This issue was automatically undone by TeleGit at the user's request.`;
+
+      const result = await updateTool.invoke({
+        repository: operation.metadata.repository,
+        issue_number: operation.metadata.issueNumber,
+        state: 'closed',
+        body: updatedBody,
+      });
+
+      await githubTools.close();
 
       return {
         success: true,
-        message: `Issue #${operation.issueNumber} closed (undone)`,
-        issueNumber: operation.issueNumber,
+        message: `Issue #${operation.metadata.issueNumber} closed (undone)`,
+        issueNumber: operation.metadata.issueNumber,
         result,
       };
     } catch (error) {
+      await githubTools.close();
       return {
         success: false,
         error: `Failed to close issue: ${error.message}`,
@@ -213,23 +185,35 @@ export class UndoManager {
 
   /**
    * Undo issue update by reverting to previous state
-   * @param {Object} operation - Operation details
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoUpdateIssue(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
+    const githubTools = await createGitHubTools(authToken, serverUrl);
+    const tools = githubTools.getTools();
+    const updateTool = tools.find(t => t.name === 'github_update_issue');
 
-    if (!operation.issueNumber) {
+    if (!updateTool) {
+      await githubTools.close();
       return {
         success: false,
-        error: 'Issue number not found in operation metadata',
+        error: 'github_update_issue tool not available',
       };
     }
 
-    if (!operation.previousState) {
+    if (!operation.metadata?.issueNumber || !operation.metadata?.repository) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Issue number or repository not found in operation metadata',
+      };
+    }
+
+    if (!operation.metadata?.previousState) {
+      await githubTools.close();
       return {
         success: false,
         error: 'Previous state not available for revert',
@@ -237,20 +221,22 @@ export class UndoManager {
     }
 
     try {
-      // Revert to previous state
-      const result = await tools.updateIssue(
-        operation.repository,
-        operation.issueNumber,
-        operation.previousState
-      );
+      const result = await updateTool.invoke({
+        repository: operation.metadata.repository,
+        issue_number: operation.metadata.issueNumber,
+        ...operation.metadata.previousState,
+      });
+
+      await githubTools.close();
 
       return {
         success: true,
-        message: `Issue #${operation.issueNumber} reverted to previous state`,
-        issueNumber: operation.issueNumber,
+        message: `Issue #${operation.metadata.issueNumber} reverted to previous state`,
+        issueNumber: operation.metadata.issueNumber,
         result,
       };
     } catch (error) {
+      await githubTools.close();
       return {
         success: false,
         error: `Failed to revert issue: ${error.message}`,
@@ -260,32 +246,50 @@ export class UndoManager {
 
   /**
    * Undo issue closure by reopening it
-   * @param {Object} operation - Operation details
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoCloseIssue(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
+    const githubTools = await createGitHubTools(authToken, serverUrl);
+    const tools = githubTools.getTools();
+    const updateTool = tools.find(t => t.name === 'github_update_issue');
 
-    if (!operation.issueNumber) {
+    if (!updateTool) {
+      await githubTools.close();
       return {
         success: false,
-        error: 'Issue number not found in operation metadata',
+        error: 'github_update_issue tool not available',
+      };
+    }
+
+    if (!operation.metadata?.issueNumber || !operation.metadata?.repository) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Issue number or repository not found in operation metadata',
       };
     }
 
     try {
-      const result = await tools.reopenIssue(operation.repository, operation.issueNumber);
+      const result = await updateTool.invoke({
+        repository: operation.metadata.repository,
+        issue_number: operation.metadata.issueNumber,
+        state: 'open',
+      });
+
+      await githubTools.close();
 
       return {
         success: true,
-        message: `Issue #${operation.issueNumber} reopened`,
-        issueNumber: operation.issueNumber,
+        message: `Issue #${operation.metadata.issueNumber} reopened`,
+        issueNumber: operation.metadata.issueNumber,
         result,
       };
     } catch (error) {
+      await githubTools.close();
       return {
         success: false,
         error: `Failed to reopen issue: ${error.message}`,
@@ -295,32 +299,50 @@ export class UndoManager {
 
   /**
    * Undo issue reopening by closing it again
-   * @param {Object} operation - Operation details
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoReopenIssue(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
+    const githubTools = await createGitHubTools(authToken, serverUrl);
+    const tools = githubTools.getTools();
+    const updateTool = tools.find(t => t.name === 'github_update_issue');
 
-    if (!operation.issueNumber) {
+    if (!updateTool) {
+      await githubTools.close();
       return {
         success: false,
-        error: 'Issue number not found in operation metadata',
+        error: 'github_update_issue tool not available',
+      };
+    }
+
+    if (!operation.metadata?.issueNumber || !operation.metadata?.repository) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Issue number or repository not found in operation metadata',
       };
     }
 
     try {
-      const result = await tools.closeIssue(operation.repository, operation.issueNumber);
+      const result = await updateTool.invoke({
+        repository: operation.metadata.repository,
+        issue_number: operation.metadata.issueNumber,
+        state: 'closed',
+      });
+
+      await githubTools.close();
 
       return {
         success: true,
-        message: `Issue #${operation.issueNumber} closed`,
-        issueNumber: operation.issueNumber,
+        message: `Issue #${operation.metadata.issueNumber} closed`,
+        issueNumber: operation.metadata.issueNumber,
         result,
       };
     } catch (error) {
+      await githubTools.close();
       return {
         success: false,
         error: `Failed to close issue: ${error.message}`,
@@ -329,40 +351,59 @@ export class UndoManager {
   }
 
   /**
-   * Undo label addition by removing them
-   * @param {Object} operation - Operation details
+   * Undo label addition by restoring previous labels
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoAddLabels(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
+    const githubTools = await createGitHubTools(authToken, serverUrl);
+    const tools = githubTools.getTools();
+    const updateTool = tools.find(t => t.name === 'github_update_issue');
 
-    if (!operation.issueNumber || !operation.previousState?.labels) {
+    if (!updateTool) {
+      await githubTools.close();
       return {
         success: false,
-        error: 'Issue number or previous labels not found',
+        error: 'github_update_issue tool not available',
+      };
+    }
+
+    if (!operation.metadata?.issueNumber || !operation.metadata?.repository) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Issue number or repository not found in operation metadata',
+      };
+    }
+
+    if (!operation.metadata?.previousState?.labels) {
+      await githubTools.close();
+      return {
+        success: false,
+        error: 'Previous labels not found in operation metadata',
       };
     }
 
     try {
-      // Restore previous labels
-      const result = await tools.updateIssue(
-        operation.repository,
-        operation.issueNumber,
-        {
-          labels: operation.previousState.labels,
-        }
-      );
+      const result = await updateTool.invoke({
+        repository: operation.metadata.repository,
+        issue_number: operation.metadata.issueNumber,
+        labels: operation.metadata.previousState.labels,
+      });
+
+      await githubTools.close();
 
       return {
         success: true,
-        message: `Labels restored for issue #${operation.issueNumber}`,
-        issueNumber: operation.issueNumber,
+        message: `Labels restored for issue #${operation.metadata.issueNumber}`,
+        issueNumber: operation.metadata.issueNumber,
         result,
       };
     } catch (error) {
+      await githubTools.close();
       return {
         success: false,
         error: `Failed to restore labels: ${error.message}`,
@@ -372,156 +413,46 @@ export class UndoManager {
 
   /**
    * Undo label removal by adding them back
-   * @param {Object} operation - Operation details
+   * @param {Object} operation - Operation details from database
    * @param {string} authToken - GitHub PAT
    * @param {string} [serverUrl] - MCP server URL
    * @returns {Promise<Object>} Undo result
    * @private
    */
   async _undoRemoveLabels(operation, authToken, serverUrl) {
-    const tools = await createGitHubTools(serverUrl, authToken);
-
-    if (!operation.issueNumber || !operation.previousState?.labels) {
-      return {
-        success: false,
-        error: 'Issue number or previous labels not found',
-      };
-    }
-
-    try {
-      // Restore previous labels
-      const result = await tools.updateIssue(
-        operation.repository,
-        operation.issueNumber,
-        {
-          labels: operation.previousState.labels,
-        }
-      );
-
-      return {
-        success: true,
-        message: `Labels restored for issue #${operation.issueNumber}`,
-        issueNumber: operation.issueNumber,
-        result,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to restore labels: ${error.message}`,
-      };
-    }
-  }
-
-  /**
-   * Clear operation history
-   * @param {number} [olderThan] - Optional timestamp - clear operations older than this
-   */
-  clearHistory(olderThan = null) {
-    if (olderThan) {
-      for (const [id, operation] of this.operationHistory.entries()) {
-        if (operation.timestamp < olderThan) {
-          this.operationHistory.delete(id);
-        }
-      }
-    } else {
-      this.operationHistory.clear();
-    }
-  }
-
-  /**
-   * Get history size
-   * @returns {number}
-   */
-  getHistorySize() {
-    return this.operationHistory.size;
-  }
-
-  /**
-   * Get all operations (optionally filtered)
-   * @param {Object} [filter] - Optional filter criteria
-   * @param {string} [filter.type] - Filter by operation type
-   * @param {boolean} [filter.undone] - Filter by undone status
-   * @returns {Array} Array of operations
-   */
-  getOperations(filter = {}) {
-    const operations = Array.from(this.operationHistory.entries()).map(
-      ([id, operation]) => ({
-        id,
-        ...operation,
-      })
-    );
-
-    if (Object.keys(filter).length === 0) {
-      return operations;
-    }
-
-    return operations.filter((op) => {
-      if (filter.type && op.type !== filter.type) {
-        return false;
-      }
-
-      if (filter.undone !== undefined && op.undone !== filter.undone) {
-        return false;
-      }
-
-      return true;
-    });
+    return this._undoAddLabels(operation, authToken, serverUrl);
   }
 }
 
 /**
- * Singleton undo manager instance
- */
-let sharedUndoManagerInstance = null;
-
-/**
- * Get or create shared undo manager instance
- * @returns {UndoManager} Shared undo manager instance
- */
-export function getSharedUndoManager() {
-  if (!sharedUndoManagerInstance) {
-    sharedUndoManagerInstance = new UndoManager();
-  }
-
-  return sharedUndoManagerInstance;
-}
-
-/**
- * Create a new undo manager instance
+ * Create an undo manager instance
+ * @param {Object} operationsRepository - Operations repository instance
  * @returns {UndoManager} New undo manager instance
  */
-export function createUndoManager() {
-  return new UndoManager();
+export function createUndoManager(operationsRepository) {
+  return new UndoManager(operationsRepository);
 }
 
 /**
  * Convenience function to undo an operation
  * @param {string} operationId - Operation ID
  * @param {string} authToken - GitHub PAT
+ * @param {Object} operationsRepository - Operations repository instance
  * @param {string} [serverUrl] - MCP server URL
  * @returns {Promise<Object>} Undo result
  */
-export async function undoOperation(operationId, authToken, serverUrl = null) {
-  const manager = getSharedUndoManager();
+export async function undoOperation(operationId, authToken, operationsRepository, serverUrl = null) {
+  const manager = createUndoManager(operationsRepository);
   return await manager.undoOperation(operationId, authToken, serverUrl);
-}
-
-/**
- * Record an operation for undo
- * @param {string} operationId - Operation ID
- * @param {Object} operation - Operation details
- */
-export function recordOperation(operationId, operation) {
-  const manager = getSharedUndoManager();
-  manager.recordOperation(operationId, operation);
 }
 
 /**
  * Check if an operation can be undone
  * @param {string} operationId - Operation ID
- * @returns {boolean}
+ * @param {Object} operationsRepository - Operations repository instance
+ * @returns {Promise<boolean>}
  */
-export function canUndoOperation(operationId) {
-  const manager = getSharedUndoManager();
-  return manager.canUndo(operationId);
+export async function canUndoOperation(operationId, operationsRepository) {
+  const manager = createUndoManager(operationsRepository);
+  return await manager.canUndo(operationId);
 }

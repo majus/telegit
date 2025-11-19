@@ -1,23 +1,20 @@
 /**
  * Telegram Asset Proxy
- * Proxies Telegram file requests to hide bot token from public URLs
+ * Transparent proxy for Telegram file requests to hide bot token from public URLs
  *
  * @module api/telegram-asset-proxy
  */
 
 import { getConfig } from '../../config/env.js';
 import https from 'https';
-import http from 'http';
 
 /**
  * Telegram Asset Proxy class
- * Provides secure proxying of Telegram files without exposing bot token
+ * Provides secure transparent proxying of Telegram files without exposing bot token
  */
 export class TelegramAssetProxy {
   constructor(botToken = null) {
     this.botToken = botToken;
-    this.cache = new Map();
-    this.cacheMaxAge = 3600000; // 1 hour in milliseconds
   }
 
   /**
@@ -40,7 +37,7 @@ export class TelegramAssetProxy {
   /**
    * Construct full Telegram file URL from file path
    * @param {string} filePath - Telegram file path (from getFile API)
-   * @returns {string} Full Telegram file URL
+   * @returns {string} Full Telegram file URL (HTTPS only)
    * @private
    */
   _buildTelegramUrl(filePath) {
@@ -55,19 +52,16 @@ export class TelegramAssetProxy {
   }
 
   /**
-   * Fetch file from Telegram servers
+   * Fetch file from Telegram servers and return response data with headers
    * @param {string} filePath - Telegram file path
-   * @returns {Promise<Buffer>} File data as Buffer
+   * @returns {Promise<{data: Buffer, headers: Object}>} File data and response headers
    * @private
    */
   async _fetchFromTelegram(filePath) {
     const url = this._buildTelegramUrl(filePath);
 
     return new Promise((resolve, reject) => {
-      const parsedUrl = new URL(url);
-      const protocol = parsedUrl.protocol === 'https:' ? https : http;
-
-      protocol
+      https
         .get(url, (response) => {
           if (response.statusCode !== 200) {
             reject(
@@ -80,69 +74,15 @@ export class TelegramAssetProxy {
 
           const chunks = [];
           response.on('data', (chunk) => chunks.push(chunk));
-          response.on('end', () => resolve(Buffer.concat(chunks)));
+          response.on('end', () => {
+            resolve({
+              data: Buffer.concat(chunks),
+              headers: response.headers,
+            });
+          });
         })
         .on('error', reject);
     });
-  }
-
-  /**
-   * Get file from cache or fetch from Telegram
-   * @param {string} filePath - Telegram file path
-   * @returns {Promise<{data: Buffer, contentType: string}>} File data and content type
-   */
-  async getFile(filePath) {
-    // Check cache
-    const cached = this.cache.get(filePath);
-    if (cached && Date.now() - cached.timestamp < this.cacheMaxAge) {
-      return {
-        data: cached.data,
-        contentType: cached.contentType,
-      };
-    }
-
-    // Fetch from Telegram
-    const data = await this._fetchFromTelegram(filePath);
-
-    // Determine content type from file extension
-    const contentType = this._getContentType(filePath);
-
-    // Cache the result
-    this.cache.set(filePath, {
-      data,
-      contentType,
-      timestamp: Date.now(),
-    });
-
-    return { data, contentType };
-  }
-
-  /**
-   * Determine content type from file path
-   * @param {string} filePath - File path
-   * @returns {string} MIME content type
-   * @private
-   */
-  _getContentType(filePath) {
-    const ext = filePath.split('.').pop().toLowerCase();
-
-    const mimeTypes = {
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      svg: 'image/svg+xml',
-      mp4: 'video/mp4',
-      webm: 'video/webm',
-      mp3: 'audio/mpeg',
-      ogg: 'audio/ogg',
-      pdf: 'application/pdf',
-      txt: 'text/plain',
-      json: 'application/json',
-    };
-
-    return mimeTypes[ext] || 'application/octet-stream';
   }
 
   /**
@@ -160,7 +100,7 @@ export class TelegramAssetProxy {
 
   /**
    * Express/HTTP handler for proxy requests
-   * Use this in your web server to handle proxy requests
+   * Transparently proxies requests to Telegram and passes through response headers
    * @param {Object} req - HTTP request object
    * @param {Object} res - HTTP response object
    * @returns {Promise<void>}
@@ -177,18 +117,17 @@ export class TelegramAssetProxy {
         return;
       }
 
-      // Get file from cache or Telegram
-      const { data, contentType } = await this.getFile(filePath);
+      // Fetch from Telegram
+      const { data, headers } = await this._fetchFromTelegram(filePath);
 
-      // Set caching headers
-      res.writeHead(200, {
-        'Content-Type': contentType,
-        'Content-Length': data.length,
-        'Cache-Control': `public, max-age=${this.cacheMaxAge / 1000}`,
-        'X-Content-Type-Options': 'nosniff',
-      });
+      // Pass through Telegram's response headers
+      const responseHeaders = { ...headers };
 
-      // Stream response
+      // Add security header
+      responseHeaders['X-Content-Type-Options'] = 'nosniff';
+
+      // Set response headers and stream data
+      res.writeHead(200, responseHeaders);
       res.end(data);
     } catch (error) {
       console.error('Telegram asset proxy error:', error);
@@ -201,48 +140,6 @@ export class TelegramAssetProxy {
         })
       );
     }
-  }
-
-  /**
-   * Clear the asset cache
-   */
-  clearCache() {
-    this.cache.clear();
-  }
-
-  /**
-   * Remove expired items from cache
-   */
-  pruneCache() {
-    const now = Date.now();
-    for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp >= this.cacheMaxAge) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Get cache statistics
-   * @returns {Object} Cache stats
-   */
-  getCacheStats() {
-    let totalSize = 0;
-    let expiredCount = 0;
-    const now = Date.now();
-
-    for (const value of this.cache.values()) {
-      totalSize += value.data.length;
-      if (now - value.timestamp >= this.cacheMaxAge) {
-        expiredCount++;
-      }
-    }
-
-    return {
-      size: this.cache.size,
-      totalBytes: totalSize,
-      expiredItems: expiredCount,
-    };
   }
 }
 
@@ -260,11 +157,6 @@ export function getSharedProxy(botToken = null) {
   if (!sharedProxyInstance) {
     sharedProxyInstance = new TelegramAssetProxy(botToken);
     sharedProxyInstance.initialize();
-
-    // Set up cache pruning interval (every 10 minutes)
-    setInterval(() => {
-      sharedProxyInstance.pruneCache();
-    }, 600000);
   }
 
   return sharedProxyInstance;
