@@ -144,9 +144,35 @@ export function validateKey(key) {
   return true;
 }
 
+/**
+ * Validate encryption configuration at application startup
+ * This should be called during app initialization to fail fast
+ * @throws {Error} If encryption key is missing or invalid
+ */
+export function validateEncryptionConfig() {
+  const key = process.env.ENCRYPTION_KEY;
+
+  if (!key) {
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is not set. ' +
+      'Generate one using: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
+
+  if (!validateKey(key)) {
+    throw new Error(
+      'ENCRYPTION_KEY is invalid. It must be 64 hexadecimal characters (32 bytes). ' +
+      'Generate a new one using: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+  }
+
+  console.log('✓ Encryption configuration validated');
+}
+
 export default {
   encrypt,
   decrypt,
   generateKey,
   validateKey,
+  validateEncryptionConfig,
 };

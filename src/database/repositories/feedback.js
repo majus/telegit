@@ -42,6 +42,9 @@ export class FeedbackRepository {
       return {
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -74,6 +77,9 @@ export class FeedbackRepository {
       return {
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -106,6 +112,9 @@ export class FeedbackRepository {
       return {
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -141,6 +150,9 @@ export class FeedbackRepository {
       return {
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -169,6 +181,9 @@ export class FeedbackRepository {
       return result.rows.map(feedback => ({
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -195,6 +210,9 @@ export class FeedbackRepository {
       return result.rows.map(feedback => ({
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,
@@ -250,6 +268,9 @@ export class FeedbackRepository {
       return {
         id: feedback.id,
         operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
+        operationId: feedback.operation_id,
+        chatId: feedback.telegram_chat_id,
         feedbackMessageId: feedback.feedback_message_id,
         scheduledDeletion: feedback.scheduled_deletion,
         dismissed: feedback.dismissed,

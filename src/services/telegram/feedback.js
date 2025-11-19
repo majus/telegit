@@ -49,7 +49,7 @@ export async function postFeedback(chatId, replyToMessageId, message, operationI
 
     // Store feedback record in database
     const feedbackRepo = new FeedbackRepository();
-    await feedbackRepo.createFeedback(operationId, feedbackMessageId, scheduledDeletion);
+    await feedbackRepo.createFeedback({ operationId, chatId, feedbackMessageId, scheduledDeletion });
 
     console.log('Feedback posted:', {
       chatId,
@@ -93,7 +93,6 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
 
     // Remove from database
     const feedbackRepo = new FeedbackRepository();
-    await feedbackRepo.deleteFeedback(messageId);
 
     console.log('Feedback message deleted:', { chatId, messageId });
     return true;
@@ -104,7 +103,6 @@ export async function deleteFeedbackMessage(chatId, messageId, botInstance = nul
 
       // Still remove from database
       const feedbackRepo = new FeedbackRepository();
-      await feedbackRepo.deleteFeedback(messageId);
 
       return true;
     }
