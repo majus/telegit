@@ -5,6 +5,7 @@
 
 import { Telegraf } from 'telegraf';
 import { getConfig } from '../../../config/env.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Telegraf} TelegrafBot
@@ -34,16 +35,16 @@ export function initializeBot(options = {}) {
 
   // Set up error handling
   bot.catch((err, ctx) => {
-    console.error('Bot error occurred:', err);
-    console.error('Error context:', {
+    logger.error({
+      err,
       updateType: ctx.updateType,
       chatId: ctx.chat?.id,
       userId: ctx.from?.id,
-    });
+    }, 'Bot error occurred');
   });
 
   // Log bot initialization
-  console.log('Telegraf bot initialized successfully');
+  logger.info('Telegraf bot initialized successfully');
 
   return bot;
 }
@@ -74,17 +75,16 @@ export async function startBot(botInstance = bot, options = {}) {
 
       const webhookUrl = `${webhookDomain}${webhookPath}`;
 
-      console.log('Starting bot in webhook mode...');
-      console.log(`Webhook URL: ${webhookUrl}`);
+      logger.info({ webhookUrl }, 'Starting bot in webhook mode');
 
       await botInstance.telegram.setWebhook(webhookUrl);
-      console.log('Webhook set successfully');
+      logger.info('Webhook set successfully');
 
       // In webhook mode, the actual server startup is handled separately
       // This just configures the webhook
     } else {
       // Polling mode (development)
-      console.log('Starting bot in polling mode...');
+      logger.info('Starting bot in polling mode');
 
       // Configure polling options
       const launchOptions = {
@@ -97,13 +97,13 @@ export async function startBot(botInstance = bot, options = {}) {
       };
 
       await botInstance.launch(launchOptions);
-      console.log('Bot started successfully in polling mode');
+      logger.info('Bot started successfully in polling mode');
     }
 
     // Setup graceful shutdown handlers
     setupGracefulShutdown(botInstance);
   } catch (error) {
-    console.error('Failed to start bot:', error);
+    logger.error({ err: error }, 'Failed to start bot');
     throw error;
   }
 }
@@ -115,23 +115,23 @@ export async function startBot(botInstance = bot, options = {}) {
  */
 export async function stopBot(botInstance = bot) {
   if (!botInstance) {
-    console.warn('No bot instance to stop');
+    logger.warn('No bot instance to stop');
     return;
   }
 
   if (isShuttingDown) {
-    console.log('Bot is already shutting down...');
+    logger.info('Bot is already shutting down');
     return;
   }
 
   isShuttingDown = true;
 
   try {
-    console.log('Stopping bot gracefully...');
+    logger.info('Stopping bot gracefully');
     await botInstance.stop();
-    console.log('Bot stopped successfully');
+    logger.info('Bot stopped successfully');
   } catch (error) {
-    console.error('Error stopping bot:', error);
+    logger.error({ err: error }, 'Error stopping bot');
     throw error;
   } finally {
     isShuttingDown = false;
@@ -146,24 +146,24 @@ export async function stopBot(botInstance = bot) {
 function setupGracefulShutdown(botInstance) {
   // Enable graceful stop
   process.once('SIGINT', async () => {
-    console.log('Received SIGINT signal');
+    logger.info('Received SIGINT signal');
     await stopBot(botInstance);
     process.exit(0);
   });
 
   process.once('SIGTERM', async () => {
-    console.log('Received SIGTERM signal');
+    logger.info('Received SIGTERM signal');
     await stopBot(botInstance);
     process.exit(0);
   });
 
   // Handle uncaught errors
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    logger.error({ reason, promise }, 'Unhandled Rejection');
   });
 
   process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+    logger.fatal({ err: error }, 'Uncaught Exception');
     stopBot(botInstance).then(() => {
       process.exit(1);
     });
@@ -200,7 +200,7 @@ export async function getBotInfo(botInstance = bot) {
     const botInfo = await botInstance.telegram.getMe();
     return botInfo;
   } catch (error) {
-    console.error('Failed to get bot info:', error);
+    logger.error({ err: error }, 'Failed to get bot info');
     throw error;
   }
 }

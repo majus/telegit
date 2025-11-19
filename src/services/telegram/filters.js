@@ -8,6 +8,7 @@
  */
 
 import { getConfig } from '../../../config/env.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Context} Context
@@ -26,7 +27,7 @@ export function isBotMentioned(ctx) {
 
   const botUsername = ctx.botInfo?.username;
   if (!botUsername) {
-    console.warn('Bot username not available for mention check');
+    logger.warn('Bot username not available for mention check');
     return false;
   }
 
@@ -234,11 +235,11 @@ export function createFilterMiddleware(options = {}) {
 
     // Message filtered out
     if (logFiltered) {
-      console.log('Message filtered:', {
+      logger.debug({
         chatId: filterResult.metadata.chatId,
         userId: filterResult.metadata.userId,
         reason: filterResult.reason,
-      });
+      }, 'Message filtered');
     }
 
     // Do not call next() - stop processing

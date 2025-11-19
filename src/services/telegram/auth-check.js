@@ -4,6 +4,7 @@
  */
 
 import { ConfigRepository } from '../../database/repositories/config.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Check if a Telegram group has GitHub authentication configured
@@ -26,10 +27,10 @@ export async function isGroupAuthenticated(groupId) {
 
     return hasRepo && hasToken;
   } catch (error) {
-    console.error('Error checking group authentication:', {
+    logger.error({
+      err: error,
       groupId,
-      error: error.message,
-    });
+    }, 'Error checking group authentication');
     return false;
   }
 }
@@ -54,10 +55,10 @@ export async function getGitHubConfig(groupId) {
       managerUserId: config.managerUserId,
     };
   } catch (error) {
-    console.error('Error getting GitHub config:', {
+    logger.error({
+      err: error,
       groupId,
-      error: error.message,
-    });
+    }, 'Error getting GitHub config');
     return null;
   }
 }
@@ -79,11 +80,11 @@ export async function isGroupManager(groupId, userId) {
 
     return config.managerUserId === userId;
   } catch (error) {
-    console.error('Error checking group manager:', {
+    logger.error({
+      err: error,
       groupId,
       userId,
-      error: error.message,
-    });
+    }, 'Error checking group manager');
     return false;
   }
 }

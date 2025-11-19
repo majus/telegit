@@ -11,6 +11,7 @@
  */
 
 import Bottleneck from 'bottleneck';
+import logger from '../utils/logger.js';
 
 /**
  * Telegram API rate limiter configuration
@@ -34,25 +35,25 @@ const telegramLimiter = new Bottleneck({
  * Event handlers for monitoring and debugging
  */
 telegramLimiter.on('error', (error) => {
-  console.error('[TelegramLimiter] Error:', error);
+  logger.error({ err: error }, '[TelegramLimiter] Error');
 });
 
 telegramLimiter.on('failed', async (error, jobInfo) => {
-  console.warn('[TelegramLimiter] Job failed:', {
+  logger.warn({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[TelegramLimiter] Job failed');
 
   // Retry on rate limit errors (HTTP 429)
   if (error.response?.statusCode === 429) {
     const retryAfter = error.response.parameters?.retry_after || 1;
-    console.log(`[TelegramLimiter] Rate limited, retrying after ${retryAfter}s`);
+    logger.info({ retryAfter }, '[TelegramLimiter] Rate limited, retrying');
     return retryAfter * 1000; // Return delay in ms
   }
 
   // Retry on network errors
   if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
-    console.log('[TelegramLimiter] Network error, retrying in 1s');
+    logger.info({ errorCode: error.code }, '[TelegramLimiter] Network error, retrying in 1s');
     return 1000;
   }
 
@@ -60,10 +61,10 @@ telegramLimiter.on('failed', async (error, jobInfo) => {
 });
 
 telegramLimiter.on('retry', (error, jobInfo) => {
-  console.log('[TelegramLimiter] Retrying job:', {
+  logger.info({
     error: error.message,
     retryCount: jobInfo.retryCount,
-  });
+  }, '[TelegramLimiter] Retrying job');
 });
 
 /**
@@ -100,7 +101,7 @@ export async function stopTelegramLimiter() {
   await telegramLimiter.stop({
     dropWaitingJobs: false, // Complete queued jobs
   });
-  console.log('[TelegramLimiter] Stopped');
+  logger.info('[TelegramLimiter] Stopped');
 }
 
 export default telegramLimiter;

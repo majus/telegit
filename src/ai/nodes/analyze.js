@@ -7,6 +7,7 @@
 
 import { classifyIntent } from '../intent-classifier.js';
 import { WorkflowStatus } from '../state-schema.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Analyze node - classifies user intent from Telegram message
@@ -64,7 +65,11 @@ export async function analyzeNode(state) {
       },
     };
   } catch (error) {
-    console.error('Error in analyze node:', error);
+    logger.error({
+      err: error,
+      chatId: state.telegramMessage?.chat?.id,
+      messageId: state.telegramMessage?.message_id,
+    }, 'Error in analyze node');
 
     return {
       ...state,

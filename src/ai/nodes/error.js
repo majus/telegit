@@ -8,6 +8,7 @@
 import { setReaction } from '../../services/telegram/reactions.js';
 import { postFeedback } from '../../services/telegram/feedback.js';
 import { WorkflowStatus } from '../state-schema.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Formats user-friendly error message
@@ -52,7 +53,7 @@ export async function errorNode(state) {
     const messageId = telegramMessage?.message_id;
 
     if (!chatId || !messageId) {
-      console.error('Cannot send error notification - missing chat/message ID:', error);
+      logger.error({ err: error }, 'Cannot send error notification - missing chat/message ID');
       return {
         ...state,
         status: WorkflowStatus.ERROR,
@@ -71,13 +72,13 @@ export async function errorNode(state) {
     const feedbackMessageId = await postFeedback(chatId, messageId, errorMessage);
 
     // Log detailed error for debugging
-    console.error('Workflow error:', {
+    logger.error({
       code: error?.code,
       message: error?.message,
       details: error?.details,
       chatId,
       messageId,
-    });
+    }, 'Workflow error');
 
     return {
       ...state,
@@ -89,7 +90,11 @@ export async function errorNode(state) {
       feedbackMessageId,
     };
   } catch (notificationError) {
-    console.error('Error in error handler node:', notificationError);
+    logger.error({
+      err: notificationError,
+      chatId: state.telegramMessage?.chat?.id,
+      messageId: state.telegramMessage?.message_id,
+    }, 'Error in error handler node');
 
     // Even error handling failed - just log and return error state
     return {

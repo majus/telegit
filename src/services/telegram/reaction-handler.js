@@ -7,6 +7,7 @@ import { parseReactionUpdate, isUndoReaction, isDismissReaction } from './reacti
 import { dismissFeedback } from './feedback.js';
 import { FeedbackRepository } from '../../database/repositories/feedback.js';
 import { OperationsRepository } from '../../database/repositories/operations.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Context} Context
@@ -27,13 +28,13 @@ export async function handleReaction(ctx, undoOperationFn = null) {
 
   const parsed = parseReactionUpdate(reactionUpdate);
 
-  console.log('Reaction update received:', {
+  logger.debug({
     chatId: parsed.chatId,
     messageId: parsed.messageId,
     userId: parsed.userId,
     addedReactions: parsed.addedReactions,
     removedReactions: parsed.removedReactions,
-  });
+  }, 'Reaction update received');
 
   // Check if this is a feedback message
   const feedbackRepo = new FeedbackRepository();
@@ -44,10 +45,10 @@ export async function handleReaction(ctx, undoOperationFn = null) {
     return;
   }
 
-  console.log('Reaction on feedback message:', {
+  logger.debug({
     feedbackId: feedback.id,
     operationId: feedback.operationId,
-  });
+  }, 'Reaction on feedback message');
 
   // Handle undo reaction (👎)
   if (parsed.addedReactions.some(isUndoReaction)) {
@@ -70,11 +71,11 @@ export async function handleReaction(ctx, undoOperationFn = null) {
  * @returns {Promise<void>}
  */
 async function handleUndoReaction(ctx, feedback, userId, undoOperationFn) {
-  console.log('Processing undo reaction:', {
+  logger.info({
     feedbackId: feedback.id,
     operationId: feedback.operationId,
     userId,
-  });
+  }, 'Processing undo reaction');
 
   try {
     // Get the operation
@@ -82,7 +83,7 @@ async function handleUndoReaction(ctx, feedback, userId, undoOperationFn) {
     const operation = await operationsRepo.getOperationById(feedback.operationId);
 
     if (!operation) {
-      console.error('Operation not found for undo:', feedback.operationId);
+      logger.error({ operationId: feedback.operationId }, 'Operation not found for undo');
       await ctx.reply('❌ Could not find the operation to undo.');
       return;
     }
@@ -102,7 +103,7 @@ async function handleUndoReaction(ctx, feedback, userId, undoOperationFn) {
     if (operation.telegramUserId !== userId) {
       // For now, allow anyone in the group to undo
       // In production, you might want to restrict this
-      console.log('Undo requested by different user than operation creator');
+      logger.debug({ operationUserId: operation.telegramUserId, requestingUserId: userId }, 'Undo requested by different user than operation creator');
     }
 
     // Perform undo operation
@@ -130,7 +131,7 @@ The GitHub issue has been closed with an "Undone by TeleGit" comment.`,
         // Delete the feedback message
         await dismissFeedback(feedback.chatId, feedback.feedbackMessageId);
       } catch (error) {
-        console.error('Failed to undo operation:', error.message);
+        logger.error({ err: error, operationId: operation.id }, 'Failed to undo operation');
 
         await ctx.telegram.sendMessage(
           feedback.chatId,
@@ -141,11 +142,11 @@ The GitHub issue has been closed with an "Undone by TeleGit" comment.`,
         );
       }
     } else {
-      console.warn('No undo operation function provided');
+      logger.warn('No undo operation function provided');
       await ctx.reply('❌ Undo functionality is not configured.');
     }
   } catch (error) {
-    console.error('Error handling undo reaction:', error.message);
+    logger.error({ err: error }, 'Error handling undo reaction');
     await ctx.reply('❌ An error occurred while processing the undo request.');
   }
 }
@@ -159,22 +160,22 @@ The GitHub issue has been closed with an "Undone by TeleGit" comment.`,
  * @returns {Promise<void>}
  */
 async function handleDismissReaction(ctx, feedback, userId) {
-  console.log('Processing dismiss reaction:', {
+  logger.debug({
     feedbackId: feedback.id,
     userId,
-  });
+  }, 'Processing dismiss reaction');
 
   try {
     // Dismiss (delete) the feedback message
     const success = await dismissFeedback(feedback.chatId, feedback.feedbackMessageId);
 
     if (success) {
-      console.log('Feedback dismissed successfully:', feedback.feedbackMessageId);
+      logger.debug({ feedbackMessageId: feedback.feedbackMessageId }, 'Feedback dismissed successfully');
     } else {
-      console.warn('Failed to dismiss feedback:', feedback.feedbackMessageId);
+      logger.warn({ feedbackMessageId: feedback.feedbackMessageId }, 'Failed to dismiss feedback');
     }
   } catch (error) {
-    console.error('Error handling dismiss reaction:', error.message);
+    logger.error({ err: error }, 'Error handling dismiss reaction');
   }
 }
 
@@ -196,11 +197,11 @@ export function createReactionHandler(undoOperationFn = null) {
  * @returns {Promise<void>}
  */
 export async function mockUndoOperation(operation) {
-  console.log('Mock undo operation:', {
+  logger.debug({
     operationId: operation.id,
     type: operation.operationType,
     githubUrl: operation.githubIssueUrl,
-  });
+  }, 'Mock undo operation');
 
   // In production, this would:
   // 1. Use GitHub MCP to close the issue
@@ -210,5 +211,5 @@ export async function mockUndoOperation(operation) {
   // Simulate async operation
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  console.log('Mock undo completed');
+  logger.debug('Mock undo completed');
 }

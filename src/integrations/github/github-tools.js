@@ -7,6 +7,7 @@
 
 import { MultiServerMCPClient } from '@langchain/mcp-adapters';
 import { getConfig } from '../../../config/env.js';
+import logger from '../../utils/logger.js';
 
 /**
  * GitHub Tools class
@@ -72,8 +73,9 @@ export class GitHubTools {
         );
       }
 
-      console.log(
-        `GitHub tools initialized with ${this.tools.length} tools: ${this.tools.map(t => t.name).join(', ')}`
+      logger.info(
+        { toolCount: this.tools.length, tools: this.tools.map(t => t.name) },
+        'GitHub tools initialized'
       );
     } catch (error) {
       throw new Error(`Failed to initialize GitHub tools: ${error.message}`);
@@ -181,7 +183,7 @@ export async function getSharedGitHubTools(authToken, repository = null) {
  */
 export function resetSharedTools() {
   if (sharedToolsInstance) {
-    sharedToolsInstance.close().catch(err => console.error('Error closing tools:', err));
+    sharedToolsInstance.close().catch(err => logger.error({ err }, 'Error closing tools'));
     sharedToolsInstance = null;
   }
 }

@@ -7,6 +7,7 @@
 
 import { IntentType, GitHubOperationType } from '../state-schema.js';
 import { sanitizeTitle, sanitizeMessageBody } from '../../utils/sanitize.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Formats issue title
@@ -184,7 +185,12 @@ export async function formatNode(state) {
       githubOperation,
     };
   } catch (error) {
-    console.error('Error in format node:', error);
+    logger.error({
+      err: error,
+      chatId: state.telegramMessage?.chat?.id,
+      messageId: state.telegramMessage?.message_id,
+      intent: state.intent?.intent,
+    }, 'Error in format node');
 
     return {
       ...state,

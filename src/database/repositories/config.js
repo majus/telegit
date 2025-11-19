@@ -5,6 +5,7 @@
 
 import { query, getClient } from '../db.js';
 import { encrypt, decrypt } from '../../utils/encryption.js';
+import logger from '../../utils/logger.js';
 
 /**
  * Repository for managing group configurations
@@ -39,7 +40,7 @@ export class ConfigRepository {
         updatedAt: config.updated_at,
       };
     } catch (error) {
-      console.error('Error getting group config:', error.message);
+      logger.error({ err: error, groupId }, 'Error getting group config');
       throw error;
     }
   }
@@ -99,7 +100,7 @@ export class ConfigRepository {
         updatedAt: savedConfig.updated_at,
       };
     } catch (error) {
-      console.error('Error setting group config:', error.message);
+      logger.error({ err: error, groupId }, 'Error setting group config');
       throw error;
     }
   }
@@ -137,7 +138,7 @@ export class ConfigRepository {
         updatedAt: config.updated_at,
       };
     } catch (error) {
-      console.error('Error updating settings:', error.message);
+      logger.error({ err: error, groupId, settings }, 'Error updating settings');
       throw error;
     }
   }
@@ -156,7 +157,7 @@ export class ConfigRepository {
 
       return result.rowCount > 0;
     } catch (error) {
-      console.error('Error deleting group config:', error.message);
+      logger.error({ err: error, groupId }, 'Error deleting group config');
       throw error;
     }
   }
@@ -175,7 +176,7 @@ export class ConfigRepository {
 
       return result.rows.length > 0;
     } catch (error) {
-      console.error('Error checking group config:', error.message);
+      logger.error({ err: error, groupId }, 'Error checking group config');
       throw error;
     }
   }
@@ -200,7 +201,7 @@ export class ConfigRepository {
         updatedAt: config.updated_at,
       }));
     } catch (error) {
-      console.error('Error getting all groups:', error.message);
+      logger.error({ err: error }, 'Error getting all groups');
       throw error;
     }
   }

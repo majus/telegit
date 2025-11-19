@@ -7,6 +7,7 @@
 
 import { getConfig } from '../../config/env.js';
 import https from 'https';
+import logger from '../utils/logger.js';
 
 /**
  * Telegram Asset Proxy class
@@ -117,11 +118,11 @@ export class TelegramAssetProxy {
 
           telegramResponse.on('end', resolve);
           telegramResponse.on('error', (error) => {
-            console.error('Telegram stream error:', error);
+            logger.error({ err: error, filePath }, 'Telegram stream error');
             reject(error);
           });
         }).on('error', (error) => {
-          console.error('Telegram request error:', error);
+          logger.error({ err: error, filePath }, 'Telegram request error');
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(
             JSON.stringify({
@@ -133,7 +134,7 @@ export class TelegramAssetProxy {
         });
       });
     } catch (error) {
-      console.error('Telegram asset proxy error:', error);
+      logger.error({ err: error }, 'Telegram asset proxy error');
 
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(

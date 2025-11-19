@@ -5,6 +5,7 @@
 
 import pg from 'pg';
 import { getConfig } from '../../config/env.js';
+import logger from '../utils/logger.js';
 
 const { Pool } = pg;
 
@@ -28,7 +29,7 @@ export async function testConnection() {
     client.release();
     return true;
   } catch (error) {
-    console.error('Database connection test failed:', error.message);
+    logger.error({ err: error }, 'Database connection test failed');
     return false;
   }
 }
@@ -63,13 +64,12 @@ export async function query(text, params) {
 
     // Log slow queries (>100ms)
     if (duration > 100) {
-      console.warn(`Slow query detected (${duration}ms):`, text.substring(0, 100));
+      logger.warn({ duration, query: text.substring(0, 100) }, 'Slow query detected');
     }
 
     return result;
   } catch (error) {
-    console.error('Query error:', error.message);
-    console.error('Query:', text);
+    logger.error({ err: error, query: text }, 'Query error');
     throw error;
   }
 }
@@ -85,8 +85,7 @@ export async function getClient() {
 
 // Handle unexpected errors - log and attempt recovery instead of crashing
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client:', err);
-  console.error('Pool will attempt to recover. If errors persist, check database connection.');
+  logger.error({ err }, 'Unexpected error on idle client. Pool will attempt to recover. If errors persist, check database connection.');
 
   // Optionally emit an event for monitoring systems to catch
   if (process.listenerCount('databaseError') > 0) {
@@ -97,11 +96,11 @@ pool.on('error', (err, client) => {
 // Log pool statistics periodically in development
 if (config.app.nodeEnv === 'development') {
   statsIntervalId = setInterval(() => {
-    console.log('Pool stats:', {
+    logger.debug({
       total: pool.totalCount,
       idle: pool.idleCount,
       waiting: pool.waitingCount,
-    });
+    }, 'Pool stats');
   }, 60000); // Every minute
 
   // Prevent interval from keeping process alive

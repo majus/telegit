@@ -5,6 +5,7 @@
 
 import { getBot } from './bot.js';
 import { ConversationContextRepository } from '../../database/repositories/context.js';
+import logger from '../../utils/logger.js';
 
 /**
  * @typedef {import('telegraf').Telegraf} TelegrafBot
@@ -74,14 +75,14 @@ export async function gatherThreadContext(ctx, options = {}) {
       const cached = await contextRepo.getContext(chatId, threadId);
 
       if (cached && cached.messages) {
-        console.log('Using cached thread context:', {
+        logger.debug({
           threadId,
           messageCount: cached.messages.length,
-        });
+        }, 'Using cached thread context');
         return cached.messages;
       }
     } catch (error) {
-      console.error('Error retrieving cached context:', error.message);
+      logger.error({ err: error }, 'Error retrieving cached context');
       // Continue with fetching
     }
   }
@@ -110,11 +111,11 @@ export async function gatherThreadContext(ctx, options = {}) {
       }
     }
 
-    console.log('Gathered thread context:', {
+    logger.debug({
       threadId,
       messageCount: messages.length,
       depth,
-    });
+    }, 'Gathered thread context');
 
     // Cache the context if enabled
     if (useCache && messages.length > 1) {
@@ -122,18 +123,18 @@ export async function gatherThreadContext(ctx, options = {}) {
         const contextRepo = new ConversationContextRepository();
         await contextRepo.cacheContext(chatId, threadId, messages, cacheTTL);
       } catch (error) {
-        console.error('Error caching context:', error.message);
+        logger.error({ err: error }, 'Error caching context');
         // Non-fatal, continue
       }
     }
 
     return messages;
   } catch (error) {
-    console.error('Error gathering thread context:', {
+    logger.error({
+      err: error,
       chatId,
       messageId,
-      error: error.message,
-    });
+    }, 'Error gathering thread context');
 
     // Return at least the current message
     return [formatMessage(message)];
@@ -171,10 +172,10 @@ export async function invalidateExpiredContexts() {
     const contextRepo = new ConversationContextRepository();
     const count = await contextRepo.invalidateExpiredContexts();
 
-    console.log(`Invalidated ${count} expired context entries`);
+    logger.info({ count }, 'Invalidated expired context entries');
     return count;
   } catch (error) {
-    console.error('Error invalidating expired contexts:', error.message);
+    logger.error({ err: error }, 'Error invalidating expired contexts');
     return 0;
   }
 }
@@ -185,7 +186,7 @@ export async function invalidateExpiredContexts() {
  * @returns {NodeJS.Timeout} Interval ID
  */
 export function startContextCleanup(intervalMs = CONTEXT_CLEANUP_INTERVAL_MS) {
-  console.log(`Starting context cleanup scheduler (interval: ${intervalMs}ms)`);
+  logger.info({ intervalMs }, 'Starting context cleanup scheduler');
 
   const intervalId = setInterval(async () => {
     await invalidateExpiredContexts();
@@ -204,7 +205,7 @@ export function startContextCleanup(intervalMs = CONTEXT_CLEANUP_INTERVAL_MS) {
 export function stopContextCleanup(intervalId) {
   if (intervalId) {
     clearInterval(intervalId);
-    console.log('Context cleanup scheduler stopped');
+    logger.info('Context cleanup scheduler stopped');
   }
 }
 
