@@ -27,7 +27,15 @@ telegit/
 │   ├── ai/                  # AI processing engine (Phase 4)
 │   │   ├── llm-client.js        # LLM client initialization
 │   │   ├── state-schema.js      # LangGraph state schema
-│   │   └── intent-classifier.js # Intent classification
+│   │   ├── intent-classifier.js # Intent classification
+│   │   ├── workflow.js          # LangGraph workflow orchestration
+│   │   ├── processor.js         # Main AI message processor
+│   │   └── nodes/           # Workflow nodes
+│   │       ├── analyze.js   # Intent analysis node
+│   │       ├── format.js    # Issue formatting node
+│   │       ├── store.js     # Database storage node
+│   │       ├── notify.js    # Telegram notification node
+│   │       └── error.js     # Error handling node
 │   ├── database/            # Database layer
 │   │   ├── db.js           # PostgreSQL client setup
 │   │   └── repositories/   # Data access repositories
@@ -60,7 +68,7 @@ telegit/
 └── vitest.config.js        # Test configuration
 ```
 
-**Current State**: Phase 1 complete (project setup), Phase 2 complete (database layer), Phase 3 partially implemented (bot core: initialization, message filtering, reaction management), Phase 4.1-4.2 complete (AI Processing Engine - LangChain Setup & Intent Classification).
+**Current State**: Phase 1 complete (project setup), Phase 2 complete (database layer), Phase 3 complete (Telegram bot service), Phase 4 complete (AI Processing Engine - except GitHub MCP dependencies). Ready for Phase 5 (GitHub MCP Integration).
 
 ## Technical Stack
 
@@ -194,20 +202,22 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - Reaction management system
 - Tests for core functionality
 
-### Phase 4.1-4.2: AI Processing Engine - LangChain & Intent Classification (Complete ✓)
+### Phase 4: AI Processing Engine (Complete ✓ except GitHub MCP dependencies)
 
-#### LLM Client (`src/ai/llm-client.js`)
+#### Phase 4.1-4.2: LangChain Setup & Intent Classification
+
+**LLM Client** (`src/ai/llm-client.js`)
 - Multi-provider support (OpenAI, Anthropic framework)
 - Configurable temperature, retries, and timeouts
 - Specialized clients for classification and generation
 - Connection validation for health checks
 
-#### State Schema (`src/ai/state-schema.js`)
+**State Schema** (`src/ai/state-schema.js`)
 - LangGraph state annotation with all channels
 - Intent types: create_bug, create_task, create_idea, update_issue, search_issues, unknown
 - State validation and initialization helpers
 
-#### Intent Classifier (`src/ai/intent-classifier.js`)
+**Intent Classifier** (`src/ai/intent-classifier.js`)
 - LLM-based message analysis and classification
 - Structured output using Zod schemas
 - Entity extraction (title, description, labels, assignees, issue numbers)
@@ -215,17 +225,42 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - Context-aware classification with conversation threads
 - Batch classification support
 
-#### Prompts (`prompts/intent-classification.txt`)
+**Prompts** (`prompts/intent-classification.txt`)
 - Comprehensive intent classification prompt
 - Clear intent type definitions with examples
 - Entity extraction rules
 - Confidence scoring guidelines
 - Context handling instructions
 
-#### Tests
+**Tests**
 - Unit tests for intent classifier (`test/unit/ai/intent-classifier.test.js`)
 - Promptfoo evaluation configuration (`test/promptfoo/intent-classification.yaml`)
 - Target: >80% classification accuracy
+
+#### Phase 4.3-4.4: LangGraph Workflow & Message Processor
+
+**Workflow Graph** (`src/ai/workflow.js`)
+- LangGraph workflow orchestration with conditional routing
+- Nodes: analyze, format, store, notify, error
+- Automatic error handling and recovery
+- Workflow statistics and monitoring
+
+**Workflow Nodes** (`src/ai/nodes/`)
+- **Analyze Node**: Classifies user intent from Telegram messages
+- **Format Node**: Formats and sanitizes GitHub issue data (XSS-safe)
+- **Store Node**: Records operations in database
+- **Notify Node**: Sends Telegram feedback with appropriate reactions
+- **Error Node**: Handles errors gracefully with user-friendly messages
+
+**Message Processor** (`src/ai/processor.js`)
+- Main entry point for AI processing
+- Conversation context gathering
+- Group configuration retrieval
+- Workflow execution and monitoring
+- Batch processing support
+- Health check functionality
+
+**Note**: Nodes for GitHub operations (search, create, update, execute) require Phase 5 (GitHub MCP Integration) and will be implemented when Phase 5 is complete.
 
 ## AI Assistant Guidelines
 
@@ -264,3 +299,4 @@ throw new Error('Missing required fields: operationId, chatId, feedbackMessageId
 - **2025-11-18**: Distilled to remove speculative content, focus on current state and generic guidelines
 - **2025-11-18**: Updated with Phase 2 (Database layer) and Phase 3 (Telegram bot core) implementations
 - **2025-11-18**: Updated with Phase 4.1-4.2 implementation (LLM client, state schema, intent classifier, prompts, tests)
+- **2025-11-18**: Updated with Phase 4.3-4.4 implementation (LangGraph workflow, workflow nodes, message processor)
