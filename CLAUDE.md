@@ -76,8 +76,6 @@ telegit/
 └── vitest.config.js        # Test configuration
 ```
 
-**Current State**: Phase 1 (Project Setup) complete. Phase 5 (GitHub MCP Integration) partially implemented - MCP client, adapter, and tool functions are ready.
-
 ## Technical Stack
 
 ### Core Technologies
@@ -115,17 +113,14 @@ telegit/
 
 ### TASKS.md Maintenance
 
+Keep TASKS.md focused on task details only. Progress is tracked by task status marks (☐/⚠/✓), not aggregate metrics.
+
 **IMPORTANT**: When updating TASKS.md:
 - ✅ **DO**: Mark task status changes (☐ → ⚠ → ✓)
-- ✅ **DO**: Update existing task fields (Description, Affected Files, Features, etc.)
-- ✅ **DO**: Add details within existing task structure
-- ❌ **DO NOT**: Add ANY new sections (no Architecture Notes, Progress Tracking, etc.)
-- ❌ **DO NOT**: Add metadata (Last Updated, Version, Status, etc.)
-- ❌ **DO NOT**: Add summary paragraphs outside task structure
-- ❌ **DO NOT**: Create aggregate statistics or counts
-- ❌ **DO NOT**: Add introductory or explanatory paragraphs to phases
-
-**Rule**: Only modify content WITHIN the existing task structure. Never add new sections or standalone paragraphs. If refactoring changes need documentation, update the task's "Affected Files" or "Features" fields, not a new "Architecture Note" section.
+- ✅ **DO**: Update task descriptions when implementation changes
+- ✅ **DO**: Add architecture notes to specific task sections when refactoring occurs
+- ❌ **DO NOT**: Create summary statistics or aggregate counts
+- ❌ **DO NOT**: Add any extra sections beyond the existing task structure
 
 ### Error Message Guidelines
 
