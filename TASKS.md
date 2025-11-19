@@ -731,8 +731,6 @@ This document provides a comprehensive breakdown of development tasks derived fr
 
 ## Phase 5: GitHub MCP Integration
 
-**Architecture Note**: Tasks 5.1.1, 5.1.2, and 5.2.1 were refactored (2025-11-19) to use the official `MultiServerMCPClient` from `@langchain/mcp-adapters` instead of manual MCP client management. This simplifies the codebase by ~75% while adding automatic SSE fallback, better error handling, and tool lifecycle hooks. All three tasks now implemented in a single file: `src/integrations/github/github-tools.js`.
-
 ### 5.1 MCP Client Setup
 
 #### Task 5.1.1: Implement MCP Client Initialization

@@ -117,14 +117,15 @@ telegit/
 
 **IMPORTANT**: When updating TASKS.md:
 - ✅ **DO**: Mark task status changes (☐ → ⚠ → ✓)
-- ✅ **DO**: Update task descriptions when implementation changes
-- ✅ **DO**: Add architecture notes to specific task sections when refactoring occurs
-- ❌ **DO NOT**: Add "Progress Tracking" sections
-- ❌ **DO NOT**: Add "Last Updated" / "Version" / "Status" metadata
-- ❌ **DO NOT**: Create summary statistics or aggregate counts
-- ❌ **DO NOT**: Add any extra sections beyond the existing task structure
+- ✅ **DO**: Update existing task fields (Description, Affected Files, Features, etc.)
+- ✅ **DO**: Add details within existing task structure
+- ❌ **DO NOT**: Add ANY new sections (no Architecture Notes, Progress Tracking, etc.)
+- ❌ **DO NOT**: Add metadata (Last Updated, Version, Status, etc.)
+- ❌ **DO NOT**: Add summary paragraphs outside task structure
+- ❌ **DO NOT**: Create aggregate statistics or counts
+- ❌ **DO NOT**: Add introductory or explanatory paragraphs to phases
 
-Keep TASKS.md focused on task details only. Progress is tracked by task status marks (☐/⚠/✓), not aggregate metrics.
+**Rule**: Only modify content WITHIN the existing task structure. Never add new sections or standalone paragraphs. If refactoring changes need documentation, update the task's "Affected Files" or "Features" fields, not a new "Architecture Note" section.
 
 ### Error Message Guidelines
 
