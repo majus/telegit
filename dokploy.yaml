@@ -1,0 +1,203 @@
+# Dokploy Configuration for TeleGit
+# Documentation: https://docs.dokploy.com
+
+version: '1'
+
+# Project configuration
+project:
+  name: telegit
+  description: AI-powered Telegram bot for GitHub issue management
+
+# Application configuration
+applications:
+  - name: telegit-app
+    type: docker
+
+    # Build configuration
+    build:
+      dockerfile: Dockerfile
+      context: .
+      args: []
+
+    # Resource limits
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 512M
+      reservations:
+        cpus: '0.5'
+        memory: 256M
+
+    # Auto-scaling configuration
+    scaling:
+      min_replicas: 1
+      max_replicas: 3
+      target_cpu_utilization: 70
+
+    # Health checks
+    health_check:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Network configuration
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+
+    # Environment variables (will be set in Dokploy UI or via secrets)
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+
+    # Secrets (sensitive environment variables)
+    # These should be configured in Dokploy's secrets management
+    secrets:
+      - TELEGRAM_BOT_TOKEN
+      - TELEGRAM_CHAT_IDS
+      - POSTGRES_PASSWORD
+      - ENCRYPTION_KEY
+      - OPENAI_API_KEY
+      - GITHUB_TOKEN
+
+    # Volumes (if needed for persistent data)
+    volumes: []
+
+    # Deployment strategy
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+# Database configuration
+databases:
+  - name: telegit-postgres
+    type: postgres
+    version: '16'
+
+    # Resource limits
+    resources:
+      limits:
+        cpus: '0.5'
+        memory: 256M
+      reservations:
+        cpus: '0.25'
+        memory: 128M
+
+    # Database configuration
+    config:
+      database: ${POSTGRES_DB:-telegit}
+      user: ${POSTGRES_USER:-postgres}
+
+    # Secrets
+    secrets:
+      - POSTGRES_PASSWORD
+
+    # Persistent storage
+    volumes:
+      - type: volume
+        source: telegit-postgres-data
+        target: /var/lib/postgresql/data
+
+    # Backup configuration
+    backup:
+      enabled: true
+      schedule: "0 2 * * *"  # Daily at 2 AM
+      retention: 7  # Keep backups for 7 days
+
+# SSL/TLS configuration
+ssl:
+  enabled: true
+  certificate_source: letsencrypt
+  domains:
+    - ${DOMAIN:-telegit.example.com}
+  force_https: true
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    enabled: true
+    path: /metrics
+    port: 3000
+  health_check:
+    path: /health
+    port: 3000
+    interval: 30s
+  logs:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# Network configuration
+networks:
+  - name: telegit-network
+    driver: overlay
+    attachable: true
+
+# Volume configuration
+volumes:
+  - name: telegit-postgres-data
+    driver: local
+
+# Deployment hooks
+hooks:
+  # Pre-deployment hook
+  pre_deploy:
+    - name: Run database migrations
+      command: node db/migrate.js
+      timeout: 60s
+
+  # Post-deployment hook
+  post_deploy:
+    - name: Health check verification
+      command: node -e "fetch('http://localhost:3000/health').then(r => r.ok ? console.log('✓ Health check passed') : process.exit(1))"
+      timeout: 30s
+
+# Environment-specific configurations
+environments:
+  # Staging environment
+  staging:
+    domain: staging.telegit.example.com
+    scaling:
+      min_replicas: 1
+      max_replicas: 1
+    resources:
+      limits:
+        cpus: '0.5'
+        memory: 256M
+    ssl:
+      enabled: false
+
+  # Production environment
+  production:
+    domain: telegit.example.com
+    scaling:
+      min_replicas: 2
+      max_replicas: 5
+    resources:
+      limits:
+        cpus: '2.0'
+        memory: 1G
+    ssl:
+      enabled: true
+      force_https: true
