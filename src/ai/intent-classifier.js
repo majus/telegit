@@ -5,7 +5,7 @@
  * Task 4.2.1: Implement Intent Classifier
  */
 
-import { StructuredOutputParser } from 'langchain/output_parsers';
+import { StructuredOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { z } from 'zod';
 import { getClassifierLLMClient } from './llm-client.js';
