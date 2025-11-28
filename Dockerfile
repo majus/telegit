@@ -1,32 +1,7 @@
-# Multi-stage Dockerfile for TeleGit
-# Stage 1: Build dependencies
-FROM node:22-alpine AS builder
+# Production Dockerfile for TeleGit
+FROM node:22-alpine
 
-# Install build dependencies
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    git
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies (including devDependencies for building)
-RUN npm ci --include=dev
-
-# Copy source code
-COPY . .
-
-# Run tests (optional - can be skipped in CI if tests run separately)
-# RUN npm test
-
-# Stage 2: Production runtime
-FROM node:22-alpine AS runtime
-
-# Install production dependencies only
+# Install runtime dependencies
 RUN apk add --no-cache \
     dumb-init \
     postgresql-client
@@ -44,12 +19,12 @@ COPY package*.json ./
 RUN npm ci --omit=dev && \
     npm cache clean --force
 
-# Copy application code from builder
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/db ./db
-COPY --from=builder /app/config ./config
-COPY --from=builder /app/prompts ./prompts
-COPY --from=builder /app/.nvmrc ./.nvmrc
+# Copy application code
+COPY src ./src
+COPY db ./db
+COPY config ./config
+COPY prompts ./prompts
+COPY .nvmrc ./
 
 # Change ownership to non-root user
 RUN chown -R telegit:telegit /app
@@ -57,7 +32,7 @@ RUN chown -R telegit:telegit /app
 # Switch to non-root user
 USER telegit
 
-# Expose health check port (if using HTTP server)
+# Expose health check port
 EXPOSE 3000
 
 # Health check configuration
