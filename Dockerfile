@@ -49,7 +49,7 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/db ./db
 COPY --from=builder /app/config ./config
 COPY --from=builder /app/prompts ./prompts
-COPY --from=builder /app/.nvm ./.nvm
+COPY --from=builder /app/.nvmrc ./.nvmrc
 
 # Change ownership to non-root user
 RUN chown -R telegit:telegit /app
