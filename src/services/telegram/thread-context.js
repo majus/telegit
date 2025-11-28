@@ -89,7 +89,7 @@ export async function gatherThreadContext(ctx, options = {}) {
 
   // Collect messages by walking up the reply chain
   const messages = [];
-  let currentMessage = message;
+  currentMessage = message;
   let depth = 0;
 
   try {

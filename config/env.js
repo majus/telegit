@@ -5,7 +5,6 @@
 
 import { z } from 'zod';
 import dotenv from 'dotenv';
-import { validateEncryptionConfig } from '../src/utils/encryption.js';
 
 // Load .env file
 dotenv.config();
@@ -44,6 +43,7 @@ const envSchema = z.object({
   GENERATOR_TEMPERATURE: z.string().optional().default('0.7'),
 
   // Application Configuration
+  PORT: z.string().optional().default('3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).optional().default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).optional().default('info'),
   RATE_LIMIT_MAX_CONCURRENT: z.string().optional().default('5'),
@@ -109,6 +109,7 @@ export function loadConfig() {
       app: {
         nodeEnv: env.NODE_ENV,
         logLevel: env.LOG_LEVEL,
+        port: parseInt(env.PORT, 10),
         rateLimit: {
           maxConcurrent: parseInt(env.RATE_LIMIT_MAX_CONCURRENT, 10),
           minTime: parseInt(env.RATE_LIMIT_MIN_TIME, 10),
@@ -134,10 +135,6 @@ export function loadConfig() {
  */
 export function validateEnv() {
   loadConfig();
-
-  // Validate encryption configuration at startup
-  validateEncryptionConfig();
-
   return true;
 }
 

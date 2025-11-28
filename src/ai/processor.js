@@ -7,8 +7,8 @@
 
 import { executeWorkflow, getWorkflowStats } from './workflow.js';
 import { createInitialState } from './state-schema.js';
-import { getGroupConfig } from '../database/repositories/config.js';
-import { getConversationContext } from '../services/telegram/thread-context.js';
+import { ConfigRepository } from '../database/repositories/config.js';
+import { gatherThreadContext } from '../services/telegram/thread-context.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -35,7 +35,8 @@ export async function processMessage(telegramMessage, options = {}) {
 
     // Get group configuration
     const groupId = telegramMessage.chat.id;
-    const groupConfig = await getGroupConfig(groupId);
+    const configRepo = new ConfigRepository();
+    const groupConfig = await configRepo.getGroupConfig(groupId);
 
     if (!groupConfig) {
       throw new Error(
@@ -48,10 +49,9 @@ export async function processMessage(telegramMessage, options = {}) {
     let conversationContext = null;
     if (!options.skipContextGathering && telegramMessage.reply_to_message) {
       try {
-        conversationContext = await getConversationContext(
-          telegramMessage.chat.id,
-          telegramMessage.message_id
-        );
+        // gatherThreadContext expects a Telegraf context object with a message property
+        const mockCtx = { message: telegramMessage };
+        conversationContext = await gatherThreadContext(mockCtx, options);
       } catch (error) {
         logger.warn({ err: error, chatId: telegramMessage.chat.id, messageId: telegramMessage.message_id }, 'Failed to gather conversation context');
         // Continue without context - not critical

@@ -5,7 +5,7 @@
  * Task 4.3.8: Implement Store Node
  */
 
-import { createOperation } from '../../database/repositories/operations.js';
+import { OperationsRepository } from '../../database/repositories/operations.js';
 import { WorkflowStatus } from '../state-schema.js';
 import logger from '../../utils/logger.js';
 
@@ -21,27 +21,28 @@ export async function storeNode(state) {
 
     // Create operation record
     const operationData = {
-      groupId: telegramMessage?.chat?.id,
-      userId: telegramMessage?.from?.id,
+      telegramGroupId: telegramMessage?.chat?.id,
       telegramMessageId: telegramMessage?.message_id,
-      intentType: intent?.intent,
-      confidence: intent?.confidence,
-      operationType: githubOperation?.type,
-      githubIssueNumber: result?.issueNumber || null,
+      operationType: githubOperation?.type || intent?.intent || 'unknown',
       githubIssueUrl: result?.issueUrl || null,
-      status: result?.success ? 'completed' : 'pending',
-      metadata: {
+      operationData: {
+        userId: telegramMessage?.from?.id,
+        intentType: intent?.intent,
+        confidence: intent?.confidence,
+        githubIssueNumber: result?.issueNumber || null,
         title: githubOperation?.data?.title,
         labels: githubOperation?.data?.labels,
         assignees: githubOperation?.data?.assignees,
       },
+      status: result?.success ? 'completed' : 'pending',
     };
 
-    const operationId = await createOperation(operationData);
+    const operationsRepo = new OperationsRepository();
+    const operation = await operationsRepo.createOperation(operationData);
 
     return {
       ...state,
-      operationId,
+      operationId: operation.id,
       timestamps: {
         ...state.timestamps,
         executedAt: Date.now(),
