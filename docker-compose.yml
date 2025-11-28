@@ -31,7 +31,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: runtime
     container_name: telegit-app
     restart: unless-stopped
     depends_on:
