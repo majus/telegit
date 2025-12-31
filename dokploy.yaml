@@ -52,17 +52,14 @@ applications:
     environment:
       NODE_ENV: production
       LOG_LEVEL: info
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-telegit}
 
     # Secrets (sensitive environment variables)
     # These should be configured in Dokploy's secrets management
     secrets:
       - TELEGRAM_BOT_TOKEN
       - TELEGRAM_CHAT_IDS
-      - POSTGRES_PASSWORD
       - ENCRYPTION_KEY
       - OPENAI_API_KEY
       - GITHUB_TOKEN
@@ -89,9 +86,9 @@ applications:
 
 # Database configuration
 databases:
-  - name: telegit-postgres
-    type: postgres
-    version: '16'
+  - name: telegit-mongodb
+    type: mongodb
+    version: '8'
 
     # Resource limits
     resources:
@@ -104,18 +101,13 @@ databases:
 
     # Database configuration
     config:
-      database: ${POSTGRES_DB:-telegit}
-      user: ${POSTGRES_USER:-postgres}
-
-    # Secrets
-    secrets:
-      - POSTGRES_PASSWORD
+      database: ${MONGODB_DATABASE:-telegit}
 
     # Persistent storage
     volumes:
       - type: volume
-        source: telegit-postgres-data
-        target: /var/lib/postgresql/data
+        source: telegit-mongodb-data
+        target: /data/db
 
     # Backup configuration
     backup:
@@ -156,15 +148,15 @@ networks:
 
 # Volume configuration
 volumes:
-  - name: telegit-postgres-data
+  - name: telegit-mongodb-data
     driver: local
 
 # Deployment hooks
 hooks:
   # Pre-deployment hook
   pre_deploy:
-    - name: Run database migrations
-      command: node db/migrate.js
+    - name: Initialize MongoDB schema
+      command: node db/mongodb-schema.js
       timeout: 60s
 
   # Post-deployment hook

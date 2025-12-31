@@ -1,26 +1,23 @@
 /**
  * Unit tests for database repositories
- * Note: These tests require a running PostgreSQL database
+ * Note: These tests use MongoDB Memory Server (in-memory MongoDB instance)
  * Run with: npm test
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, test } from 'vitest';
-import { pool, testConnection, closePool } from '../../../src/database/db.js';
+import {
+  startMongoServer,
+  stopMongoServer,
+  getTestDb,
+  clearDatabase,
+} from '../../helpers/mongodb-test-helper.js';
 import { ConfigRepository } from '../../../src/database/repositories/config.js';
 import { OperationsRepository } from '../../../src/database/repositories/operations.js';
 import { FeedbackRepository } from '../../../src/database/repositories/feedback.js';
 import { ConversationContextRepository } from '../../../src/database/repositories/context.js';
 import { generateKey } from '../../../src/utils/encryption.js';
 import { faker } from '@faker-js/faker';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Check database availability at module load time
-const DB_REQUIRED = process.env.RUN_DB_TESTS === 'true';
+import { ObjectId } from 'mongodb';
 
 describe('Database Repositories', () => {
   const configRepo = new ConfigRepository();
@@ -28,47 +25,33 @@ describe('Database Repositories', () => {
   const feedbackRepo = new FeedbackRepository();
   const contextRepo = new ConversationContextRepository();
 
-  let dbAvailable = false;
+  let db = null;
 
-  // Set up encryption key for tests
+  // Set up MongoDB Memory Server and encryption key for tests
   beforeAll(async () => {
     if (!process.env.ENCRYPTION_KEY) {
       process.env.ENCRYPTION_KEY = generateKey();
     }
 
-    // Check database connection
-    const isConnected = await testConnection();
-    if (!isConnected) {
-      console.warn('⚠️  PostgreSQL is not available. Database repository tests will be skipped.');
-      console.warn('   To run database tests, ensure PostgreSQL is running and set RUN_DB_TESTS=true');
-      dbAvailable = false;
-      return;
-    }
+    // Start MongoDB Memory Server
+    const { db: testDb } = await startMongoServer('telegit_test');
+    db = testDb;
 
-    dbAvailable = true;
-
-    // Load and run schema
-    const schemaPath = path.join(__dirname, '../../../db/schema.sql');
-    const schema = await fs.readFile(schemaPath, 'utf-8');
-    await pool.query(schema);
+    // Initialize schema (create collections with validators and indexes)
+    const { initializeSchema } = await import('../../../db/mongodb-schema.js');
+    await initializeSchema();
   });
 
   afterAll(async () => {
-    if (dbAvailable) {
-      await closePool();
-    }
+    await stopMongoServer();
   });
 
   describe('ConfigRepository', () => {
     const testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
       // Clean up test data
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      await db.collection('group_configs').deleteMany({ telegramGroupId: testGroupId });
     });
 
     it('should create a new group configuration', async () => {
@@ -189,12 +172,9 @@ describe('Database Repositories', () => {
       await configRepo.setGroupConfig(testGroupId, config);
 
       // Query raw database to check encryption
-      const result = await pool.query(
-        'SELECT encrypted_github_token FROM group_configs WHERE telegram_group_id = $1',
-        [testGroupId]
-      );
+      const result = await db.collection('group_configs').findOne({ telegramGroupId: testGroupId });
 
-      const encryptedToken = result.rows[0].encrypted_github_token;
+      const encryptedToken = result.encryptedGithubToken;
 
       // Encrypted token should not match plaintext
       expect(encryptedToken).not.toBe(config.githubToken);
@@ -208,25 +188,15 @@ describe('Database Repositories', () => {
     let testOperationId;
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
       testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
 
-      // Create a test group config first (foreign key constraint)
-      await pool.query(
-        `INSERT INTO group_configs (telegram_group_id, github_repo, encrypted_github_token, manager_user_id)
-         VALUES ($1, $2, $3, $4)`,
-        [testGroupId, 'owner/repo', 'encrypted_token', 123456]
-      );
-
-      // Clean up test operations
-      await pool.query('DELETE FROM operations WHERE telegram_group_id = $1', [testGroupId]);
+      // Clean up test data
+      await db.collection('operations').deleteMany({ telegramGroupId: testGroupId });
     });
 
     afterEach(async () => {
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      // Clean up test data
+      await db.collection('operations').deleteMany({ telegramGroupId: testGroupId });
     });
 
     it('should create a new operation', async () => {
@@ -243,6 +213,8 @@ describe('Database Repositories', () => {
 
       expect(result).toBeDefined();
       expect(result.id).toBeDefined();
+      // ID should be a valid MongoDB ObjectId (24-char hex string)
+      expect(result.id).toMatch(/^[0-9a-f]{24}$/);
       expect(result.operationType).toBe(operationData.operationType);
       expect(result.status).toBe(operationData.status);
 
@@ -360,35 +332,29 @@ describe('Database Repositories', () => {
     let testOperationId;
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
       testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
 
-      // Create test group and operation
-      await pool.query(
-        `INSERT INTO group_configs (telegram_group_id, github_repo, encrypted_github_token, manager_user_id)
-         VALUES ($1, $2, $3, $4)`,
-        [testGroupId, 'owner/repo', 'encrypted_token', 123456]
-      );
+      // Create a test operation
+      const operation = await operationsRepo.createOperation({
+        telegramGroupId: testGroupId,
+        telegramMessageId: faker.number.int({ min: 1, max: 999999 }),
+        operationType: 'create_bug',
+        status: 'completed',
+      });
 
-      const opResult = await pool.query(
-        `INSERT INTO operations (telegram_group_id, telegram_message_id, operation_type)
-         VALUES ($1, $2, $3) RETURNING id`,
-        [testGroupId, faker.number.int({ min: 1, max: 999999 }), 'create_bug']
-      );
-
-      testOperationId = opResult.rows[0].id;
+      testOperationId = operation.id;
     });
 
     afterEach(async () => {
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      // Clean up test data
+      await db.collection('operations').deleteMany({ telegramGroupId: testGroupId });
+      await db.collection('operation_feedback').deleteMany({});
     });
 
     it('should create feedback message', async () => {
       const feedbackData = {
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: faker.number.int({ min: 1, max: 999999 }),
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       };
@@ -397,6 +363,7 @@ describe('Database Repositories', () => {
 
       expect(result).toBeDefined();
       expect(result.operationId).toBe(testOperationId);
+      expect(result.telegramChatId).toBe(testGroupId);
       expect(result.dismissed).toBe(false);
     });
 
@@ -405,6 +372,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -420,6 +388,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -435,6 +404,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -452,6 +422,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: pastTime,
       });
@@ -468,6 +439,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: pastTime,
       });
@@ -484,6 +456,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -501,6 +474,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: initialTime,
       });
@@ -517,14 +491,8 @@ describe('Database Repositories', () => {
     const testThreadId = faker.number.int({ min: 1, max: 999999 });
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
-      await pool.query(
-        'DELETE FROM conversation_context WHERE telegram_group_id = $1',
-        [testGroupId]
-      );
+      // Clean up test data
+      await db.collection('conversation_context').deleteMany({ telegramGroupId: testGroupId });
     });
 
     it('should cache conversation context', async () => {

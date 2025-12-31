@@ -21,8 +21,14 @@ export async function startMongoServer(dbName = 'test') {
     return { db, client: mongoClient };
   }
 
-  // Start MongoDB Memory Server
-  mongoServer = await MongoMemoryServer.create();
+  // Start MongoDB Memory Server with specific version
+  // Using 6.0.9 as it's a stable LTS version more likely to be available
+  mongoServer = await MongoMemoryServer.create({
+    binary: {
+      version: '6.0.9',
+      skipMD5: true, // Skip MD5 check for faster startup
+    },
+  });
   const uri = mongoServer.getUri();
 
   // Connect client

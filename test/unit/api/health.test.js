@@ -45,18 +45,18 @@ describe('Health Check API', () => {
 
     it('should check database health when db provided', async () => {
       const mockDb = {
-        query: vi.fn().mockResolvedValue({ rows: [] }),
+        command: vi.fn().mockResolvedValue({ ok: 1 }),
       };
 
       const result = await performHealthCheck({ db: mockDb });
 
       expect(result.checks.database).toBeDefined();
-      expect(mockDb.query).toHaveBeenCalledWith('SELECT 1');
+      expect(mockDb.command).toHaveBeenCalledWith({ ping: 1 });
     });
 
     it('should handle database errors', async () => {
       const mockDb = {
-        query: vi.fn().mockRejectedValue(new Error('Database connection failed')),
+        command: vi.fn().mockRejectedValue(new Error('Database connection failed')),
       };
 
       const result = await performHealthCheck({ db: mockDb });

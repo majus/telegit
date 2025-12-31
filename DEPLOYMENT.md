@@ -20,7 +20,7 @@ This guide covers deploying TeleGit to production using Docker and Dokploy, as w
 ### Required Software
 
 - **Node.js**: >= 22.0.0 (specified in `.nvm`)
-- **PostgreSQL**: 16.x or higher
+- **MongoDB**: 8.x or higher
 - **Docker**: 20.10 or higher
 - **Docker Compose**: 2.x or higher (for local development)
 - **Git**: For version control
@@ -74,11 +74,8 @@ TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_IDS=123456789,-987654321
 
 # Database Configuration
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=telegit
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_secure_password
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DATABASE=telegit
 
 # Security
 ENCRYPTION_KEY=<64-character-hex-string>
@@ -91,20 +88,19 @@ OPENAI_MODEL=gpt-4
 ### 4. Setup Database
 
 ```bash
-# Start PostgreSQL (if using Docker)
+# Start MongoDB (if using Docker)
 docker run -d \
-  --name telegit-postgres \
-  -e POSTGRES_DB=telegit \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  postgres:16-alpine
+  --name telegit-mongodb \
+  -e MONGO_INITDB_DATABASE=telegit \
+  -p 27017:27017 \
+  -v mongodb_data:/data/db \
+  mongo:8-jammy
 
-# Run database schema
-psql -h localhost -U postgres -d telegit -f db/schema.sql
+# Initialize MongoDB schema
+node db/mongodb-schema.js
 
-# Or run migrations
-node db/migrate.js
+# Verify connection
+mongosh --eval "db.adminCommand('ping')"
 ```
 
 ### 5. Start Development Server
@@ -151,14 +147,13 @@ docker-compose down -v
 ### Manual Docker Run
 
 ```bash
-# Start PostgreSQL
+# Start MongoDB
 docker run -d \
-  --name telegit-postgres \
+  --name telegit-mongodb \
   --network telegit-net \
-  -e POSTGRES_DB=telegit \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=secure_password \
-  postgres:16-alpine
+  -e MONGO_INITDB_DATABASE=telegit \
+  -v mongodb_data:/data/db \
+  mongo:8-jammy
 
 # Start TeleGit
 docker run -d \
@@ -167,11 +162,8 @@ docker run -d \
   -p 3000:3000 \
   -e TELEGRAM_BOT_TOKEN=your_token \
   -e TELEGRAM_CHAT_IDS=123456789 \
-  -e POSTGRES_HOST=telegit-postgres \
-  -e POSTGRES_PORT=5432 \
-  -e POSTGRES_DB=telegit \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=secure_password \
+  -e MONGODB_URI=mongodb://telegit-mongodb:27017 \
+  -e MONGODB_DATABASE=telegit \
   -e ENCRYPTION_KEY=your_64_char_hex_key \
   -e OPENAI_API_KEY=your_api_key \
   telegit:latest
@@ -203,11 +195,8 @@ dokploy deploy --project telegit --env production --config dokploy.yaml
 |----------|-------------|---------|----------|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token | `123456:ABC-DEF...` | ✓ |
 | `TELEGRAM_CHAT_IDS` | Allowed chat IDs (comma-separated) | `123456789,-987654321` | ✓ |
-| `POSTGRES_HOST` | Database host | `localhost` | ✓ |
-| `POSTGRES_PORT` | Database port | `5432` | ✓ |
-| `POSTGRES_DB` | Database name | `telegit` | ✓ |
-| `POSTGRES_USER` | Database user | `postgres` | ✓ |
-| `POSTGRES_PASSWORD` | Database password | `secure_password` | ✓ |
+| `MONGODB_URI` | MongoDB connection URI | `mongodb://localhost:27017` | ✓ |
+| `MONGODB_DATABASE` | MongoDB database name | `telegit` | ✓ |
 | `ENCRYPTION_KEY` | 64-char hex encryption key | `0123456789abcdef...` | ✓ |
 | `OPENAI_API_KEY` | OpenAI API key | `sk-...` | ✓ |
 | `OPENAI_MODEL` | OpenAI model | `gpt-4` | ✓ |
@@ -336,16 +325,16 @@ docker logs -f telegit-app
 
 ```bash
 # Check database is running
-docker ps | grep postgres
+docker ps | grep mongodb
 
 # Test connection manually
-psql -h localhost -U postgres -d telegit
+mongosh --host localhost --port 27017 --eval "db.adminCommand('ping')"
 
 # Check database logs
-docker logs telegit-postgres
+docker logs telegit-mongodb
 
 # Verify environment variables
-docker exec telegit-app env | grep POSTGRES
+docker exec telegit-app env | grep MONGODB
 ```
 
 #### 2. Telegram Bot Not Responding
@@ -526,7 +515,7 @@ LOG_LEVEL=debug
 - [Contributing Guide](./CONTRIBUTING.md) - Development guidelines
 - [Dokploy Documentation](https://docs.dokploy.com)
 - [Docker Documentation](https://docs.docker.com)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [MongoDB Documentation](https://www.mongodb.com/docs/)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 
 ## Support

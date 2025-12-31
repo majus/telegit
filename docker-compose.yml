@@ -1,24 +1,24 @@
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: telegit-postgres
+  # MongoDB Database
+  mongodb:
+    image: mongo:8-jammy
+    container_name: telegit-mongodb
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-telegit}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-telegit}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MONGODB_PORT:-27017}:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./db/init.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
+      - mongodb_data:/data/db
+      - ./db/mongodb-schema.js:/docker-entrypoint-initdb.d/init-schema.js:ro
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-telegit}",
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand('ping')",
         ]
       interval: 10s
       timeout: 5s
@@ -34,7 +34,7 @@ services:
     container_name: telegit-app
     restart: unless-stopped
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
     environment:
       # Telegram Configuration
@@ -45,11 +45,8 @@ services:
       GITHUB_MCP_SERVER_URL: ${GITHUB_MCP_SERVER_URL:-http://localhost:3000/mcp}
 
       # Database Configuration
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-telegit}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-telegit}
 
       # Security Configuration
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
@@ -114,5 +111,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  mongodb_data:
     driver: local
