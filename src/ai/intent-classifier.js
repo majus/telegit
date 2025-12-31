@@ -107,15 +107,15 @@ export async function classifyIntent({ message, context = [], messageMetadata = 
     throw new Error('Message text is required for intent classification');
   }
 
+  // Format context before try block so it's available in catch
+  const contextText = formatContext(context);
+
   try {
     // Load prompt template
     const promptTemplateText = await loadPromptTemplate();
 
     // Create prompt with format instructions
     const prompt = PromptTemplate.fromTemplate(promptTemplateText);
-
-    // Format context if provided
-    const contextText = formatContext(context);
 
     // Get LLM client optimized for classification
     const llm = getClassifierLLMClient();
