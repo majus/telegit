@@ -94,7 +94,7 @@ docker run -d \
   -e MONGO_INITDB_DATABASE=telegit \
   -p 27017:27017 \
   -v mongodb_data:/data/db \
-  mongo:8-jammy
+  mongodb/mongodb-community-server:8.0-ubi8
 
 # Initialize MongoDB schema
 node db/mongodb-schema.js
@@ -153,7 +153,7 @@ docker run -d \
   --network telegit-net \
   -e MONGO_INITDB_DATABASE=telegit \
   -v mongodb_data:/data/db \
-  mongo:8-jammy
+  mongodb/mongodb-community-server:8.0-ubi8
 
 # Start TeleGit
 docker run -d \

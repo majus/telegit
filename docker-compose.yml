@@ -1,7 +1,7 @@
 services:
   # MongoDB Database
   mongodb:
-    image: mongo:8-jammy
+    image: mongodb/mongodb-community-server:8.0-ubi8
     container_name: telegit-mongodb
     restart: unless-stopped
     environment:
@@ -12,14 +12,7 @@ services:
       - mongodb_data:/data/db
       - ./db/mongodb-schema.js:/docker-entrypoint-initdb.d/init-schema.js:ro
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "--eval",
-          "db.adminCommand('ping')",
-        ]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -112,4 +105,5 @@ networks:
 
 volumes:
   mongodb_data:
+    name: telegit-mongodb-data
     driver: local
