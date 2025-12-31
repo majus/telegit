@@ -19,11 +19,8 @@ const envSchema = z.object({
   GITHUB_MCP_SERVER_URL: z.string().url().optional().default('http://localhost:3000/mcp'),
 
   // Database Configuration
-  POSTGRES_HOST: z.string().optional().default('localhost'),
-  POSTGRES_PORT: z.string().optional().default('5432'),
-  POSTGRES_DB: z.string().optional().default('telegit'),
-  POSTGRES_USER: z.string().optional().default('postgres'),
-  POSTGRES_PASSWORD: z.string().optional(),
+  MONGODB_URI: z.string().optional().default('mongodb://localhost:27017'),
+  MONGODB_DATABASE: z.string().optional().default('telegit'),
 
   // Security Configuration
   ENCRYPTION_KEY: z.string().length(64, 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)'),
@@ -60,27 +57,15 @@ export function loadConfig() {
     // Validate environment variables
     const env = envSchema.parse(process.env);
 
-    // Build database configuration from POSTGRES_* variables
-    const host = env.POSTGRES_HOST;
-    const port = parseInt(env.POSTGRES_PORT, 10);
-    const database = env.POSTGRES_DB;
-    const user = env.POSTGRES_USER;
-    const password = env.POSTGRES_PASSWORD;
-
-    // Build database URL
-    const credentials = password ? `${user}:${password}` : user;
-    const url = `postgresql://${credentials}@${host}:${port}/${database}`;
-
+    // Build database configuration from MongoDB environment variables
     const databaseConfig = {
-      host,
-      port,
-      database,
-      user,
-      password,
-      url,
-      max: 20, // Connection pool size (as per PRD)
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      uri: env.MONGODB_URI,
+      database: env.MONGODB_DATABASE,
+      // MongoDB connection pool settings
+      maxPoolSize: 20,
+      minPoolSize: 2,
+      connectTimeoutMS: 2000,
+      socketTimeoutMS: 30000,
     };
 
     // Parse and transform into structured config

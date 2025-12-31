@@ -38,11 +38,7 @@ telegit/
 ├── .git/                     # Git repository
 ├── .nvm                      # Node.js version (22)
 ├── db/                       # Database files
-│   ├── schema.sql           # PostgreSQL schema definition
-│   ├── init.sql             # Database initialization script
-│   ├── migrate.js           # Migration runner
-│   └── migrations/          # Migration files
-│       └── 001_initial_schema.sql
+│   └── mongodb-schema.js    # MongoDB schema initialization script
 ├── src/                      # Source code
 │   ├── ai/                  # AI processing engine (Phase 4)
 │   │   ├── llm-client.js        # LLM client initialization
@@ -57,7 +53,7 @@ telegit/
 │   │       ├── notify.js    # Telegram notification node
 │   │       └── error.js     # Error handling node
 │   ├── database/            # Database layer
-│   │   ├── db.js           # PostgreSQL client setup
+│   │   ├── db.js           # MongoDB client setup
 │   │   └── repositories/   # Data access repositories
 │   │       ├── config.js   # Group configuration repository
 │   │       ├── operations.js # Operations tracking repository
@@ -109,7 +105,7 @@ telegit/
 ### Key Dependencies
 
 - **Telegraf**: NPM library for Telegram Bot API integration
-- **PostgreSQL**: Database backend (using `pg` NPM library)
+- **MongoDB**: Database backend (using official `mongodb` NPM library)
 - **GitHub MCP Server**: For GitHub API integration (NOT generic HTTP client)
 - **LangChain**: AI agent SDK (@langchain/core, @langchain/openai, @langchain/langgraph, @langchain/mcp-adapters)
 - **Promptfoo**: LLM evaluation and testing framework

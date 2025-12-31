@@ -3,7 +3,7 @@
  * Manages conversation thread caching with TTL expiration
  */
 
-import { query, getClient } from '../db.js';
+import { getDb, ObjectId } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -43,34 +43,41 @@ export class ConversationContextRepository {
       }
 
       // Calculate expiration time
+      const now = new Date();
       const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
-      const result = await query(
-        `INSERT INTO conversation_context (
-          telegram_group_id,
-          thread_root_message_id,
-          messages_chain,
-          expires_at
-        )
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (telegram_group_id, thread_root_message_id)
-        DO UPDATE SET
-          messages_chain = EXCLUDED.messages_chain,
-          cached_at = CURRENT_TIMESTAMP,
-          expires_at = EXCLUDED.expires_at
-        RETURNING *`,
-        [telegramGroupId, threadRootMessageId, JSON.stringify(messagesChain), expiresAt]
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
+
+      const result = await collection.findOneAndUpdate(
+        {
+          telegramGroupId: Long.fromNumber(telegramGroupId),
+          threadRootMessageId: Long.fromNumber(threadRootMessageId),
+        },
+        {
+          $set: {
+            messagesChain,
+            expiresAt,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            telegramGroupId: Long.fromNumber(telegramGroupId),
+            threadRootMessageId: Long.fromNumber(threadRootMessageId),
+            createdAt: now,
+          },
+        },
+        { upsert: true, returnDocument: 'after' }
       );
 
-      const context = result.rows[0];
+      const context = result;
 
       return {
-        id: context.id,
-        telegramGroupId: context.telegram_group_id,
-        threadRootMessageId: context.thread_root_message_id,
-        messagesChain: context.messages_chain,
-        cachedAt: context.cached_at,
-        expiresAt: context.expires_at,
+        id: context._id.toString(),
+        telegramGroupId: Number(context.telegramGroupId),
+        threadRootMessageId: Number(context.threadRootMessageId),
+        messagesChain: context.messagesChain,
+        createdAt: context.createdAt,
+        expiresAt: context.expiresAt,
       };
     } catch (error) {
       logger.error({ err: error, telegramGroupId, threadRootMessageId }, 'Error caching context');
@@ -87,27 +94,26 @@ export class ConversationContextRepository {
    */
   async getContext(groupId, threadRootMessageId) {
     try {
-      const result = await query(
-        `SELECT * FROM conversation_context
-         WHERE telegram_group_id = $1
-         AND thread_root_message_id = $2
-         AND expires_at > CURRENT_TIMESTAMP`,
-        [groupId, threadRootMessageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      if (result.rows.length === 0) {
+      const context = await collection.findOne({
+        telegramGroupId: Long.fromNumber(groupId),
+        threadRootMessageId: Long.fromNumber(threadRootMessageId),
+        expiresAt: { $gt: new Date() },
+      });
+
+      if (!context) {
         return null;
       }
 
-      const context = result.rows[0];
-
       return {
-        id: context.id,
-        telegramGroupId: context.telegram_group_id,
-        threadRootMessageId: context.thread_root_message_id,
-        messagesChain: context.messages_chain,
-        cachedAt: context.cached_at,
-        expiresAt: context.expires_at,
+        id: context._id.toString(),
+        telegramGroupId: Number(context.telegramGroupId),
+        threadRootMessageId: Number(context.threadRootMessageId),
+        messagesChain: context.messagesChain,
+        createdAt: context.createdAt,
+        expiresAt: context.expiresAt,
       };
     } catch (error) {
       logger.error({ err: error, groupId, threadRootMessageId }, 'Error getting context');
@@ -123,15 +129,16 @@ export class ConversationContextRepository {
    */
   async hasValidContext(groupId, threadRootMessageId) {
     try {
-      const result = await query(
-        `SELECT 1 FROM conversation_context
-         WHERE telegram_group_id = $1
-         AND thread_root_message_id = $2
-         AND expires_at > CURRENT_TIMESTAMP`,
-        [groupId, threadRootMessageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      return result.rows.length > 0;
+      const count = await collection.countDocuments({
+        telegramGroupId: Long.fromNumber(groupId),
+        threadRootMessageId: Long.fromNumber(threadRootMessageId),
+        expiresAt: { $gt: new Date() },
+      });
+
+      return count > 0;
     } catch (error) {
       logger.error({ err: error, groupId, threadRootMessageId }, 'Error checking context validity');
       throw error;
@@ -145,16 +152,18 @@ export class ConversationContextRepository {
    */
   async invalidateExpiredContexts() {
     try {
-      const result = await query(
-        `DELETE FROM conversation_context
-         WHERE expires_at <= CURRENT_TIMESTAMP`
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      if (result.rowCount > 0) {
-        logger.info({ count: result.rowCount }, 'Cleaned up expired context entries');
+      const result = await collection.deleteMany({
+        expiresAt: { $lte: new Date() },
+      });
+
+      if (result.deletedCount > 0) {
+        logger.info({ count: result.deletedCount }, 'Cleaned up expired context entries');
       }
 
-      return result.rowCount;
+      return result.deletedCount;
     } catch (error) {
       logger.error({ err: error }, 'Error invalidating expired contexts');
       throw error;
@@ -169,14 +178,15 @@ export class ConversationContextRepository {
    */
   async deleteContext(groupId, threadRootMessageId) {
     try {
-      const result = await query(
-        `DELETE FROM conversation_context
-         WHERE telegram_group_id = $1
-         AND thread_root_message_id = $2`,
-        [groupId, threadRootMessageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      return result.rowCount > 0;
+      const result = await collection.deleteOne({
+        telegramGroupId: Long.fromNumber(groupId),
+        threadRootMessageId: Long.fromNumber(threadRootMessageId),
+      });
+
+      return result.deletedCount > 0;
     } catch (error) {
       logger.error({ err: error, groupId, threadRootMessageId }, 'Error deleting context');
       throw error;
@@ -190,13 +200,14 @@ export class ConversationContextRepository {
    */
   async deleteGroupContexts(groupId) {
     try {
-      const result = await query(
-        `DELETE FROM conversation_context
-         WHERE telegram_group_id = $1`,
-        [groupId]
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      return result.rowCount;
+      const result = await collection.deleteMany({
+        telegramGroupId: Long.fromNumber(groupId),
+      });
+
+      return result.deletedCount;
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error deleting group contexts');
       throw error;
@@ -210,20 +221,21 @@ export class ConversationContextRepository {
    */
   async getGroupContexts(groupId) {
     try {
-      const result = await query(
-        `SELECT * FROM conversation_context
-         WHERE telegram_group_id = $1
-         ORDER BY cached_at DESC`,
-        [groupId]
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      return result.rows.map(context => ({
-        id: context.id,
-        telegramGroupId: context.telegram_group_id,
-        threadRootMessageId: context.thread_root_message_id,
-        messagesChain: context.messages_chain,
-        cachedAt: context.cached_at,
-        expiresAt: context.expires_at,
+      const contexts = await collection
+        .find({ telegramGroupId: Long.fromNumber(groupId) })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return contexts.map(context => ({
+        id: context._id.toString(),
+        telegramGroupId: Number(context.telegramGroupId),
+        threadRootMessageId: Number(context.threadRootMessageId),
+        messagesChain: context.messagesChain,
+        createdAt: context.createdAt,
+        expiresAt: context.expiresAt,
       }));
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error getting group contexts');
@@ -237,20 +249,39 @@ export class ConversationContextRepository {
    */
   async getCacheStats() {
     try {
-      const result = await query(
-        `SELECT
-          COUNT(*) as total,
-          COUNT(*) FILTER (WHERE expires_at > CURRENT_TIMESTAMP) as valid,
-          COUNT(*) FILTER (WHERE expires_at <= CURRENT_TIMESTAMP) as expired
-         FROM conversation_context`
-      );
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
 
-      const stats = result.rows[0];
+      const now = new Date();
+      const result = await collection.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            valid: {
+              $sum: {
+                $cond: [{ $gt: ['$expiresAt', now] }, 1, 0],
+              },
+            },
+            expired: {
+              $sum: {
+                $cond: [{ $lte: ['$expiresAt', now] }, 1, 0],
+              },
+            },
+          },
+        },
+      ]).toArray();
+
+      if (result.length === 0) {
+        return { total: 0, valid: 0, expired: 0 };
+      }
+
+      const stats = result[0];
 
       return {
-        total: parseInt(stats.total, 10),
-        valid: parseInt(stats.valid, 10),
-        expired: parseInt(stats.expired, 10),
+        total: stats.total,
+        valid: stats.valid,
+        expired: stats.expired,
       };
     } catch (error) {
       logger.error({ err: error }, 'Error getting cache stats');
@@ -274,28 +305,31 @@ export class ConversationContextRepository {
 
       const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
-      const result = await query(
-        `UPDATE conversation_context
-         SET expires_at = $3
-         WHERE telegram_group_id = $1
-         AND thread_root_message_id = $2
-         RETURNING *`,
-        [groupId, threadRootMessageId, expiresAt]
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
+
+      const result = await collection.findOneAndUpdate(
+        {
+          telegramGroupId: Long.fromNumber(groupId),
+          threadRootMessageId: Long.fromNumber(threadRootMessageId),
+        },
+        { $set: { expiresAt, updatedAt: new Date() } },
+        { returnDocument: 'after' }
       );
 
-      if (result.rows.length === 0) {
+      if (!result) {
         throw new Error(`Context not found for group ${groupId}, thread ${threadRootMessageId}`);
       }
 
-      const context = result.rows[0];
+      const context = result;
 
       return {
-        id: context.id,
-        telegramGroupId: context.telegram_group_id,
-        threadRootMessageId: context.thread_root_message_id,
-        messagesChain: context.messages_chain,
-        cachedAt: context.cached_at,
-        expiresAt: context.expires_at,
+        id: context._id.toString(),
+        telegramGroupId: Number(context.telegramGroupId),
+        threadRootMessageId: Number(context.threadRootMessageId),
+        messagesChain: context.messagesChain,
+        createdAt: context.createdAt,
+        expiresAt: context.expiresAt,
       };
     } catch (error) {
       logger.error({ err: error, groupId, threadRootMessageId, ttlMinutes }, 'Error updating TTL');
@@ -303,6 +337,11 @@ export class ConversationContextRepository {
     }
   }
 }
+
+// Helper to convert number to Long (MongoDB's 64-bit integer type)
+const Long = {
+  fromNumber: (num) => num,
+};
 
 // Export singleton instance
 export default new ConversationContextRepository();

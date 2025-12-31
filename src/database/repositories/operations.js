@@ -3,7 +3,7 @@
  * Manages operation tracking and history for bot actions
  */
 
-import { query, getClient } from '../db.js';
+import { getDb, ObjectId } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -37,38 +37,32 @@ export class OperationsRepository {
         throw new Error('Missing required fields: telegramGroupId, telegramMessageId, operationType');
       }
 
-      const result = await query(
-        `INSERT INTO operations (
-          telegram_group_id,
-          telegram_message_id,
-          operation_type,
-          github_issue_url,
-          operation_data,
-          status
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *`,
-        [
-          telegramGroupId,
-          telegramMessageId,
-          operationType,
-          githubIssueUrl,
-          JSON.stringify(operationData),
-          status,
-        ]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      const operation = result.rows[0];
+      const now = new Date();
+      const doc = {
+        telegramGroupId: Long.fromNumber(telegramGroupId),
+        telegramMessageId: Long.fromNumber(telegramMessageId),
+        operationType,
+        githubIssueUrl,
+        operationData,
+        status,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const result = await collection.insertOne(doc);
 
       return {
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
-        status: operation.status,
-        createdAt: operation.created_at,
+        id: result.insertedId.toString(),
+        telegramGroupId,
+        telegramMessageId,
+        operationType,
+        githubIssueUrl,
+        operationData,
+        status,
+        createdAt: now,
       };
     } catch (error) {
       logger.error({ err: error, telegramGroupId, telegramMessageId, operationType }, 'Error creating operation');
@@ -78,50 +72,49 @@ export class OperationsRepository {
 
   /**
    * Update operation status
-   * @param {string} operationId - Operation UUID
+   * @param {string} operationId - Operation ObjectId string
    * @param {string} status - New status (pending, processing, completed, failed, undone)
    * @param {Object} [metadata] - Optional metadata to merge with operation_data
    * @returns {Promise<Object>} Updated operation
    */
   async updateOperationStatus(operationId, status, metadata = null) {
     try {
-      let updateQuery;
-      let params;
+      const db = await getDb();
+      const collection = db.collection('operations');
 
+      const update = {
+        $set: {
+          status,
+          updatedAt: new Date(),
+        },
+      };
+
+      // Merge metadata with existing operation_data if provided
       if (metadata) {
-        // Merge metadata with existing operation_data
-        updateQuery = `UPDATE operations
-         SET status = $2,
-             operation_data = operation_data || $3::jsonb
-         WHERE id = $1
-         RETURNING *`;
-        params = [operationId, status, JSON.stringify(metadata)];
-      } else {
-        updateQuery = `UPDATE operations
-         SET status = $2
-         WHERE id = $1
-         RETURNING *`;
-        params = [operationId, status];
+        update.$set.operationData = metadata;
       }
 
-      const result = await query(updateQuery, params);
+      const result = await collection.findOneAndUpdate(
+        { _id: new ObjectId(operationId) },
+        update,
+        { returnDocument: 'after' }
+      );
 
-      if (result.rows.length === 0) {
+      if (!result) {
         throw new Error(`Operation not found: ${operationId}`);
       }
 
-      const operation = result.rows[0];
+      const operation = result;
 
       return {
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        telegramUserId: operation.telegram_user_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
         status: operation.status,
-        createdAt: operation.created_at,
+        createdAt: operation.createdAt,
       };
     } catch (error) {
       logger.error({ err: error, operationId, status, metadata }, 'Error updating operation status');
@@ -131,35 +124,41 @@ export class OperationsRepository {
 
   /**
    * Update operation with GitHub issue URL
-   * @param {string} operationId - Operation UUID
+   * @param {string} operationId - Operation ObjectId string
    * @param {string} githubIssueUrl - GitHub issue URL
    * @returns {Promise<Object>} Updated operation
    */
   async updateGithubIssueUrl(operationId, githubIssueUrl) {
     try {
-      const result = await query(
-        `UPDATE operations
-         SET github_issue_url = $2
-         WHERE id = $1
-         RETURNING *`,
-        [operationId, githubIssueUrl]
+      const db = await getDb();
+      const collection = db.collection('operations');
+
+      const result = await collection.findOneAndUpdate(
+        { _id: new ObjectId(operationId) },
+        {
+          $set: {
+            githubIssueUrl,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after' }
       );
 
-      if (result.rows.length === 0) {
+      if (!result) {
         throw new Error(`Operation not found: ${operationId}`);
       }
 
-      const operation = result.rows[0];
+      const operation = result;
 
       return {
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
         status: operation.status,
-        createdAt: operation.created_at,
+        createdAt: operation.createdAt,
       };
     } catch (error) {
       logger.error({ err: error, operationId, githubIssueUrl }, 'Error updating GitHub issue URL');
@@ -169,31 +168,29 @@ export class OperationsRepository {
 
   /**
    * Get operation by ID
-   * @param {string} operationId - Operation UUID
+   * @param {string} operationId - Operation ObjectId string
    * @returns {Promise<Object|null>} Operation or null if not found
    */
   async getOperationById(operationId) {
     try {
-      const result = await query(
-        'SELECT * FROM operations WHERE id = $1',
-        [operationId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      if (result.rows.length === 0) {
+      const operation = await collection.findOne({ _id: new ObjectId(operationId) });
+
+      if (!operation) {
         return null;
       }
 
-      const operation = result.rows[0];
-
       return {
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
         status: operation.status,
-        createdAt: operation.created_at,
+        createdAt: operation.createdAt,
       };
     } catch (error) {
       logger.error({ err: error, operationId }, 'Error getting operation by ID');
@@ -208,26 +205,30 @@ export class OperationsRepository {
    */
   async getOperationByMessageId(messageId) {
     try {
-      const result = await query(
-        'SELECT * FROM operations WHERE telegram_message_id = $1 ORDER BY created_at DESC LIMIT 1',
-        [messageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      if (result.rows.length === 0) {
+      const operation = await collection
+        .find({ telegramMessageId: Long.fromNumber(messageId) })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .toArray();
+
+      if (operation.length === 0) {
         return null;
       }
 
-      const operation = result.rows[0];
+      const op = operation[0];
 
       return {
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
-        status: operation.status,
-        createdAt: operation.created_at,
+        id: op._id.toString(),
+        telegramGroupId: Number(op.telegramGroupId),
+        telegramMessageId: Number(op.telegramMessageId),
+        operationType: op.operationType,
+        githubIssueUrl: op.githubIssueUrl,
+        operationData: op.operationData,
+        status: op.status,
+        createdAt: op.createdAt,
       };
     } catch (error) {
       logger.error({ err: error, messageId }, 'Error getting operation by message ID');
@@ -243,23 +244,24 @@ export class OperationsRepository {
    */
   async getGroupOperationHistory(groupId, limit = 50) {
     try {
-      const result = await query(
-        `SELECT * FROM operations
-         WHERE telegram_group_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [groupId, limit]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      return result.rows.map(operation => ({
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
+      const operations = await collection
+        .find({ telegramGroupId: Long.fromNumber(groupId) })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+
+      return operations.map(operation => ({
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
         status: operation.status,
-        createdAt: operation.created_at,
+        createdAt: operation.createdAt,
       }));
     } catch (error) {
       logger.error({ err: error, groupId, limit }, 'Error getting group operation history');
@@ -275,23 +277,24 @@ export class OperationsRepository {
    */
   async getOperationsByStatus(status, limit = 100) {
     try {
-      const result = await query(
-        `SELECT * FROM operations
-         WHERE status = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [status, limit]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      return result.rows.map(operation => ({
-        id: operation.id,
-        telegramGroupId: operation.telegram_group_id,
-        telegramMessageId: operation.telegram_message_id,
-        operationType: operation.operation_type,
-        githubIssueUrl: operation.github_issue_url,
-        operationData: operation.operation_data,
+      const operations = await collection
+        .find({ status })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+
+      return operations.map(operation => ({
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
         status: operation.status,
-        createdAt: operation.created_at,
+        createdAt: operation.createdAt,
       }));
     } catch (error) {
       logger.error({ err: error, status, limit }, 'Error getting operations by status');
@@ -301,23 +304,28 @@ export class OperationsRepository {
 
   /**
    * Delete operation
-   * @param {string} operationId - Operation UUID
+   * @param {string} operationId - Operation ObjectId string
    * @returns {Promise<boolean>} True if deleted, false if not found
    */
   async deleteOperation(operationId) {
     try {
-      const result = await query(
-        'DELETE FROM operations WHERE id = $1',
-        [operationId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operations');
 
-      return result.rowCount > 0;
+      const result = await collection.deleteOne({ _id: new ObjectId(operationId) });
+
+      return result.deletedCount > 0;
     } catch (error) {
       logger.error({ err: error, operationId }, 'Error deleting operation');
       throw error;
     }
   }
 }
+
+// Helper to convert number to Long (MongoDB's 64-bit integer type)
+const Long = {
+  fromNumber: (num) => num,
+};
 
 // Export singleton instance
 export default new OperationsRepository();

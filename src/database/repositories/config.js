@@ -3,7 +3,7 @@
  * Manages group configuration including encrypted GitHub credentials
  */
 
-import { query, getClient } from '../db.js';
+import { getDb, ObjectId } from '../db.js';
 import { encrypt, decrypt } from '../../utils/encryption.js';
 import logger from '../../utils/logger.js';
 
@@ -18,26 +18,25 @@ export class ConfigRepository {
    */
   async getGroupConfig(groupId) {
     try {
-      const result = await query(
-        'SELECT * FROM group_configs WHERE telegram_group_id = $1',
-        [groupId]
-      );
+      const db = await getDb();
+      const collection = db.collection('group_configs');
 
-      if (result.rows.length === 0) {
+      const config = await collection.findOne({ telegramGroupId: Long.fromNumber(groupId) });
+
+      if (!config) {
         return null;
       }
 
-      const config = result.rows[0];
-
       // Decrypt GitHub token before returning
       return {
-        telegramGroupId: config.telegram_group_id,
-        githubRepo: config.github_repo,
-        githubToken: decrypt(config.encrypted_github_token),
-        managerUserId: config.manager_user_id,
-        settings: config.settings,
-        createdAt: config.created_at,
-        updatedAt: config.updated_at,
+        id: config._id.toString(),
+        telegramGroupId: Number(config.telegramGroupId),
+        githubRepo: config.githubRepo,
+        githubToken: decrypt(config.encryptedGithubToken),
+        managerUserId: Number(config.managerUserId),
+        settings: config.settings || {},
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
       };
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error getting group config');
@@ -67,37 +66,39 @@ export class ConfigRepository {
       // Encrypt the GitHub token
       const encryptedToken = encrypt(githubToken);
 
-      const result = await query(
-        `INSERT INTO group_configs (
-          telegram_group_id,
-          github_repo,
-          encrypted_github_token,
-          manager_user_id,
-          settings,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-        ON CONFLICT (telegram_group_id)
-        DO UPDATE SET
-          github_repo = EXCLUDED.github_repo,
-          encrypted_github_token = EXCLUDED.encrypted_github_token,
-          manager_user_id = EXCLUDED.manager_user_id,
-          settings = EXCLUDED.settings,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING *`,
-        [groupId, githubRepo, encryptedToken, managerUserId, JSON.stringify(settings)]
+      const db = await getDb();
+      const collection = db.collection('group_configs');
+
+      const now = new Date();
+      const result = await collection.findOneAndUpdate(
+        { telegramGroupId: Long.fromNumber(groupId) },
+        {
+          $set: {
+            githubRepo,
+            encryptedGithubToken: encryptedToken,
+            managerUserId: Long.fromNumber(managerUserId),
+            settings,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            telegramGroupId: Long.fromNumber(groupId),
+            createdAt: now,
+          },
+        },
+        { upsert: true, returnDocument: 'after' }
       );
 
-      const savedConfig = result.rows[0];
+      const savedConfig = result;
 
       return {
-        telegramGroupId: savedConfig.telegram_group_id,
-        githubRepo: savedConfig.github_repo,
-        githubToken: decrypt(savedConfig.encrypted_github_token),
-        managerUserId: savedConfig.manager_user_id,
+        id: savedConfig._id.toString(),
+        telegramGroupId: Number(savedConfig.telegramGroupId),
+        githubRepo: savedConfig.githubRepo,
+        githubToken: decrypt(savedConfig.encryptedGithubToken),
+        managerUserId: Number(savedConfig.managerUserId),
         settings: savedConfig.settings,
-        createdAt: savedConfig.created_at,
-        updatedAt: savedConfig.updated_at,
+        createdAt: savedConfig.createdAt,
+        updatedAt: savedConfig.updatedAt,
       };
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error setting group config');
@@ -113,29 +114,45 @@ export class ConfigRepository {
    */
   async updateSettings(groupId, settings) {
     try {
-      const result = await query(
-        `UPDATE group_configs
-         SET settings = settings || $2::jsonb,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE telegram_group_id = $1
-         RETURNING *`,
-        [groupId, JSON.stringify(settings)]
-      );
+      const db = await getDb();
+      const collection = db.collection('group_configs');
 
-      if (result.rows.length === 0) {
+      // Get existing settings first
+      const existing = await collection.findOne({ telegramGroupId: Long.fromNumber(groupId) });
+
+      if (!existing) {
         throw new Error(`Group configuration not found for group ID: ${groupId}`);
       }
 
-      const config = result.rows[0];
+      // Merge settings
+      const mergedSettings = { ...existing.settings, ...settings };
+
+      const result = await collection.findOneAndUpdate(
+        { telegramGroupId: Long.fromNumber(groupId) },
+        {
+          $set: {
+            settings: mergedSettings,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) {
+        throw new Error(`Group configuration not found for group ID: ${groupId}`);
+      }
+
+      const config = result;
 
       return {
-        telegramGroupId: config.telegram_group_id,
-        githubRepo: config.github_repo,
-        githubToken: decrypt(config.encrypted_github_token),
-        managerUserId: config.manager_user_id,
+        id: config._id.toString(),
+        telegramGroupId: Number(config.telegramGroupId),
+        githubRepo: config.githubRepo,
+        githubToken: decrypt(config.encryptedGithubToken),
+        managerUserId: Number(config.managerUserId),
         settings: config.settings,
-        createdAt: config.created_at,
-        updatedAt: config.updated_at,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
       };
     } catch (error) {
       logger.error({ err: error, groupId, settings }, 'Error updating settings');
@@ -150,12 +167,12 @@ export class ConfigRepository {
    */
   async deleteGroupConfig(groupId) {
     try {
-      const result = await query(
-        'DELETE FROM group_configs WHERE telegram_group_id = $1',
-        [groupId]
-      );
+      const db = await getDb();
+      const collection = db.collection('group_configs');
 
-      return result.rowCount > 0;
+      const result = await collection.deleteOne({ telegramGroupId: Long.fromNumber(groupId) });
+
+      return result.deletedCount > 0;
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error deleting group config');
       throw error;
@@ -169,12 +186,12 @@ export class ConfigRepository {
    */
   async hasConfig(groupId) {
     try {
-      const result = await query(
-        'SELECT 1 FROM group_configs WHERE telegram_group_id = $1',
-        [groupId]
-      );
+      const db = await getDb();
+      const collection = db.collection('group_configs');
 
-      return result.rows.length > 0;
+      const count = await collection.countDocuments({ telegramGroupId: Long.fromNumber(groupId) });
+
+      return count > 0;
     } catch (error) {
       logger.error({ err: error, groupId }, 'Error checking group config');
       throw error;
@@ -187,18 +204,23 @@ export class ConfigRepository {
    */
   async getAllGroups() {
     try {
-      const result = await query(
-        'SELECT telegram_group_id, github_repo, manager_user_id, settings, created_at, updated_at FROM group_configs ORDER BY created_at DESC'
-      );
+      const db = await getDb();
+      const collection = db.collection('group_configs');
+
+      const configs = await collection
+        .find({}, { projection: { encryptedGithubToken: 0 } })
+        .sort({ createdAt: -1 })
+        .toArray();
 
       // Don't decrypt tokens when listing all groups (security)
-      return result.rows.map(config => ({
-        telegramGroupId: config.telegram_group_id,
-        githubRepo: config.github_repo,
-        managerUserId: config.manager_user_id,
-        settings: config.settings,
-        createdAt: config.created_at,
-        updatedAt: config.updated_at,
+      return configs.map(config => ({
+        id: config._id.toString(),
+        telegramGroupId: Number(config.telegramGroupId),
+        githubRepo: config.githubRepo,
+        managerUserId: Number(config.managerUserId),
+        settings: config.settings || {},
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
       }));
     } catch (error) {
       logger.error({ err: error }, 'Error getting all groups');
@@ -206,6 +228,11 @@ export class ConfigRepository {
     }
   }
 }
+
+// Helper to convert number to Long (MongoDB's 64-bit integer type)
+const Long = {
+  fromNumber: (num) => num,
+};
 
 // Export singleton instance
 export default new ConfigRepository();
