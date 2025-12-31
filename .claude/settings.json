@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm start)",
+      "Bash(npm test)",
+      "Bash(openspec:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
