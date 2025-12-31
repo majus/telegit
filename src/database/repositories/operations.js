@@ -3,7 +3,7 @@
  * Manages operation tracking and history for bot actions
  */
 
-import { getDb, ObjectId } from '../db.js';
+import { getDb, ObjectId, Long } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -22,15 +22,15 @@ export class OperationsRepository {
    * @returns {Promise<Object>} Created operation
    */
   async createOperation(data) {
+    const {
+      telegramGroupId,
+      telegramMessageId,
+      operationType,
+      githubIssueUrl = null,
+      operationData = {},
+      status = 'pending',
+    } = data;
     try {
-      const {
-        telegramGroupId,
-        telegramMessageId,
-        operationType,
-        githubIssueUrl = null,
-        operationData = {},
-        status = 'pending',
-      } = data;
 
       // Validate required fields
       if (!telegramGroupId || !telegramMessageId || !operationType) {
@@ -64,9 +64,9 @@ export class OperationsRepository {
         status,
         createdAt: now,
       };
-    } catch (error) {
-      logger.error({ err: error, telegramGroupId, telegramMessageId, operationType }, 'Error creating operation');
-      throw error;
+    } catch (err) {
+      logger.error({ err, telegramGroupId, telegramMessageId, operationType }, 'Error creating operation');
+      throw err;
     }
   }
 
@@ -116,9 +116,9 @@ export class OperationsRepository {
         status: operation.status,
         createdAt: operation.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId, status, metadata }, 'Error updating operation status');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId, status, metadata }, 'Error updating operation status');
+      throw err;
     }
   }
 
@@ -160,9 +160,9 @@ export class OperationsRepository {
         status: operation.status,
         createdAt: operation.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId, githubIssueUrl }, 'Error updating GitHub issue URL');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId, githubIssueUrl }, 'Error updating GitHub issue URL');
+      throw err;
     }
   }
 
@@ -192,9 +192,9 @@ export class OperationsRepository {
         status: operation.status,
         createdAt: operation.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId }, 'Error getting operation by ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId }, 'Error getting operation by ID');
+      throw err;
     }
   }
 
@@ -230,9 +230,9 @@ export class OperationsRepository {
         status: op.status,
         createdAt: op.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error getting operation by message ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error getting operation by message ID');
+      throw err;
     }
   }
 
@@ -263,9 +263,9 @@ export class OperationsRepository {
         status: operation.status,
         createdAt: operation.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error, groupId, limit }, 'Error getting group operation history');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, limit }, 'Error getting group operation history');
+      throw err;
     }
   }
 
@@ -296,9 +296,9 @@ export class OperationsRepository {
         status: operation.status,
         createdAt: operation.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error, status, limit }, 'Error getting operations by status');
-      throw error;
+    } catch (err) {
+      logger.error({ err, status, limit }, 'Error getting operations by status');
+      throw err;
     }
   }
 
@@ -315,17 +315,12 @@ export class OperationsRepository {
       const result = await collection.deleteOne({ _id: new ObjectId(operationId) });
 
       return result.deletedCount > 0;
-    } catch (error) {
-      logger.error({ err: error, operationId }, 'Error deleting operation');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId }, 'Error deleting operation');
+      throw err;
     }
   }
 }
-
-// Helper to convert number to Long (MongoDB's 64-bit integer type)
-const Long = {
-  fromNumber: (num) => num,
-};
 
 // Export singleton instance
 export default new OperationsRepository();

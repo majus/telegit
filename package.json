@@ -28,7 +28,8 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "test": "vitest",
+    "test": "vitest run",
+    "test:dev": "vitest dev",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "lint": "echo 'Linter not configured yet'",

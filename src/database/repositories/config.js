@@ -3,7 +3,7 @@
  * Manages group configuration including encrypted GitHub credentials
  */
 
-import { getDb, ObjectId } from '../db.js';
+import { getDb, ObjectId, Long } from '../db.js';
 import { encrypt, decrypt } from '../../utils/encryption.js';
 import logger from '../../utils/logger.js';
 
@@ -38,9 +38,9 @@ export class ConfigRepository {
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       };
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error getting group config');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error getting group config');
+      throw err;
     }
   }
 
@@ -100,9 +100,9 @@ export class ConfigRepository {
         createdAt: savedConfig.createdAt,
         updatedAt: savedConfig.updatedAt,
       };
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error setting group config');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error setting group config');
+      throw err;
     }
   }
 
@@ -154,9 +154,9 @@ export class ConfigRepository {
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       };
-    } catch (error) {
-      logger.error({ err: error, groupId, settings }, 'Error updating settings');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, settings }, 'Error updating settings');
+      throw err;
     }
   }
 
@@ -173,9 +173,9 @@ export class ConfigRepository {
       const result = await collection.deleteOne({ telegramGroupId: Long.fromNumber(groupId) });
 
       return result.deletedCount > 0;
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error deleting group config');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error deleting group config');
+      throw err;
     }
   }
 
@@ -192,9 +192,9 @@ export class ConfigRepository {
       const count = await collection.countDocuments({ telegramGroupId: Long.fromNumber(groupId) });
 
       return count > 0;
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error checking group config');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error checking group config');
+      throw err;
     }
   }
 
@@ -222,9 +222,9 @@ export class ConfigRepository {
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       }));
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting all groups');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting all groups');
+      throw err;
     }
   }
 }

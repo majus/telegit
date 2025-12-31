@@ -33,12 +33,18 @@ if (!process.env.GITHUB_REPO_NAME) {
   process.env.GITHUB_REPO_NAME = 'test-repo';
 }
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/telegit_test';
+// MongoDB configuration (project migrated from PostgreSQL to MongoDB)
+if (!process.env.MONGODB_URI) {
+  process.env.MONGODB_URI = 'mongodb://localhost:27017';
 }
 
+if (!process.env.MONGODB_DATABASE) {
+  process.env.MONGODB_DATABASE = 'telegit_test';
+}
+
+// OpenAI API key for tests (unit tests use mocks, Promptfoo needs real key from environment)
 if (!process.env.OPENAI_API_KEY) {
-  process.env.OPENAI_API_KEY = 'test_openai_key';
+  process.env.OPENAI_API_KEY = 'mock-test-api-key-no-real-calls-needed';
 }
 
 // Global test lifecycle hooks

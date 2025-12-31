@@ -73,15 +73,17 @@ telegit/
 ├── prompts/                 # LLM prompts
 │   └── intent-classification.txt
 ├── test/                    # Test files
-│   ├── unit/               # Unit tests
-│   │   ├── ai/             # AI component tests
+│   ├── unit/               # Unit tests (fast, offline)
+│   │   ├── ai/             # AI helper function tests
+│   │   │   └── helper-functions.test.js
 │   │   ├── database/       # Database tests
 │   │   │   └── repositories.test.js
 │   │   ├── telegram/       # Telegram bot tests
 │   │   └── utils/          # Utility tests
 │   │       └── encryption.test.js
 │   ├── integration/        # Integration tests
-│   ├── promptfoo/          # Promptfoo evaluations
+│   ├── promptfoo/          # LLM evaluations (requires API key)
+│   │   └── intent-classification.yaml
 │   ├── mocks/              # Mock data generators
 │   └── helpers/            # Test helpers
 ├── config/                 # Configuration files
@@ -145,9 +147,35 @@ telegit/
 - Read @README.md for detailed feature specifications and requirements
 - Follow ES module syntax (`import/export`, not `require()`)
 - Keep integrations modular and pluggable
-- Include tests when implementing features (Vitest + Promptfoo)
+- Write unit tests for application logic, use Promptfoo for LLM validation
 - Add comments for non-obvious logic
 - Update documentation when making changes
+
+### Testing Strategy
+
+TeleGit follows a clear separation between unit tests and LLM evaluations:
+
+**Unit Tests (Vitest)** - For application logic:
+- Test utility functions, validation, error handling
+- Use mocks for external services (LLM, GitHub, Telegram)
+- Run offline without API keys
+- Should complete in < 10 seconds
+- Located in `test/unit/`
+
+**LLM Evaluations (Promptfoo)** - For AI behavior:
+- Test intent classification accuracy
+- Validate entity extraction
+- Compare model performance
+- Require real OpenAI API key
+- Located in `test/promptfoo/`
+
+**When to use which:**
+- Unit tests: Input validation, regex parsing, string formatting, database operations, encryption
+- Promptfoo: Intent classification, LLM output quality, prompt effectiveness
+
+**Documentation:**
+- `TESTING.md` - Unit testing guide
+- `EVALUATION.md` - Promptfoo evaluation guide
 
 ### Dependencies
 

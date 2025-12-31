@@ -3,7 +3,7 @@
  * Provides connection pooling and database access for the application
  */
 
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient, ObjectId, Long } from 'mongodb';
 import { getConfig } from '../../config/env.js';
 import logger from '../utils/logger.js';
 
@@ -109,9 +109,9 @@ export async function query(operationName, operation) {
 }
 
 /**
- * Export ObjectId for use in repositories
+ * Export ObjectId and Long for use in repositories
  */
-export { ObjectId };
+export { ObjectId, Long };
 
 // Handle unexpected errors
 if (client) {
@@ -147,4 +147,4 @@ if (config.app.nodeEnv === 'development') {
   }
 }
 
-export default { getClient, getDb, testConnection, closePool, query, ObjectId };
+export default { getClient, getDb, testConnection, closePool, query, ObjectId, Long };

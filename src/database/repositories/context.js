@@ -3,7 +3,7 @@
  * Manages conversation thread caching with TTL expiration
  */
 
-import { getDb, ObjectId } from '../db.js';
+import { getDb, ObjectId, Long } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -20,13 +20,13 @@ export class ConversationContextRepository {
    * @returns {Promise<Object>} Created context record
    */
   async cacheContext(data) {
+    const {
+      telegramGroupId,
+      threadRootMessageId,
+      messagesChain,
+      ttlMinutes = 60,
+    } = data;
     try {
-      const {
-        telegramGroupId,
-        threadRootMessageId,
-        messagesChain,
-        ttlMinutes = 60,
-      } = data;
 
       // Validate required fields
       if (!telegramGroupId || !threadRootMessageId || !messagesChain) {
@@ -79,9 +79,9 @@ export class ConversationContextRepository {
         createdAt: context.createdAt,
         expiresAt: context.expiresAt,
       };
-    } catch (error) {
-      logger.error({ err: error, telegramGroupId, threadRootMessageId }, 'Error caching context');
-      throw error;
+    } catch (err) {
+      logger.error({ err, telegramGroupId, threadRootMessageId }, 'Error caching context');
+      throw err;
     }
   }
 
@@ -115,9 +115,9 @@ export class ConversationContextRepository {
         createdAt: context.createdAt,
         expiresAt: context.expiresAt,
       };
-    } catch (error) {
-      logger.error({ err: error, groupId, threadRootMessageId }, 'Error getting context');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, threadRootMessageId }, 'Error getting context');
+      throw err;
     }
   }
 
@@ -139,9 +139,9 @@ export class ConversationContextRepository {
       });
 
       return count > 0;
-    } catch (error) {
-      logger.error({ err: error, groupId, threadRootMessageId }, 'Error checking context validity');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, threadRootMessageId }, 'Error checking context validity');
+      throw err;
     }
   }
 
@@ -164,9 +164,9 @@ export class ConversationContextRepository {
       }
 
       return result.deletedCount;
-    } catch (error) {
-      logger.error({ err: error }, 'Error invalidating expired contexts');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error invalidating expired contexts');
+      throw err;
     }
   }
 
@@ -187,9 +187,9 @@ export class ConversationContextRepository {
       });
 
       return result.deletedCount > 0;
-    } catch (error) {
-      logger.error({ err: error, groupId, threadRootMessageId }, 'Error deleting context');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, threadRootMessageId }, 'Error deleting context');
+      throw err;
     }
   }
 
@@ -208,9 +208,9 @@ export class ConversationContextRepository {
       });
 
       return result.deletedCount;
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error deleting group contexts');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error deleting group contexts');
+      throw err;
     }
   }
 
@@ -237,9 +237,9 @@ export class ConversationContextRepository {
         createdAt: context.createdAt,
         expiresAt: context.expiresAt,
       }));
-    } catch (error) {
-      logger.error({ err: error, groupId }, 'Error getting group contexts');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error getting group contexts');
+      throw err;
     }
   }
 
@@ -283,9 +283,9 @@ export class ConversationContextRepository {
         valid: stats.valid,
         expired: stats.expired,
       };
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting cache stats');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting cache stats');
+      throw err;
     }
   }
 
@@ -331,17 +331,12 @@ export class ConversationContextRepository {
         createdAt: context.createdAt,
         expiresAt: context.expiresAt,
       };
-    } catch (error) {
-      logger.error({ err: error, groupId, threadRootMessageId, ttlMinutes }, 'Error updating TTL');
-      throw error;
+    } catch (err) {
+      logger.error({ err, groupId, threadRootMessageId, ttlMinutes }, 'Error updating TTL');
+      throw err;
     }
   }
 }
-
-// Helper to convert number to Long (MongoDB's 64-bit integer type)
-const Long = {
-  fromNumber: (num) => num,
-};
 
 // Export singleton instance
 export default new ConversationContextRepository();

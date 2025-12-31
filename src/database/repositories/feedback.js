@@ -3,7 +3,7 @@
  * Manages feedback messages for auto-deletion and reaction controls
  */
 
-import { getDb, ObjectId } from '../db.js';
+import { getDb, ObjectId, Long } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -20,8 +20,8 @@ export class FeedbackRepository {
    * @returns {Promise<Object>} Created feedback record
    */
   async createFeedback(data) {
+    const { operationId, chatId, feedbackMessageId, scheduledDeletion } = data;
     try {
-      const { operationId, chatId, feedbackMessageId, scheduledDeletion } = data;
 
       // Validate required fields
       if (!operationId || !chatId || !feedbackMessageId || !scheduledDeletion) {
@@ -51,15 +51,15 @@ export class FeedbackRepository {
       return {
         id: result.insertedId.toString(),
         operationId,
-        chatId,
+        telegramChatId: chatId,
         feedbackMessageId,
         scheduledDeletion: doc.scheduledDeletion,
         dismissed: false,
         createdAt: now,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId, chatId, feedbackMessageId }, 'Error creating feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId, chatId, feedbackMessageId }, 'Error creating feedback');
+      throw err;
     }
   }
 
@@ -93,9 +93,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error getting feedback by message ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error getting feedback by message ID');
+      throw err;
     }
   }
 
@@ -124,9 +124,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId }, 'Error getting feedback by operation ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId }, 'Error getting feedback by operation ID');
+      throw err;
     }
   }
 
@@ -161,9 +161,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error marking feedback as dismissed');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error marking feedback as dismissed');
+      throw err;
     }
   }
 
@@ -194,9 +194,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting scheduled deletions');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting scheduled deletions');
+      throw err;
     }
   }
 
@@ -223,9 +223,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting pending feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting pending feedback');
+      throw err;
     }
   }
 
@@ -242,9 +242,9 @@ export class FeedbackRepository {
       const result = await collection.deleteOne({ feedbackMessageId: Long.fromNumber(messageId) });
 
       return result.deletedCount > 0;
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error deleting feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error deleting feedback');
+      throw err;
     }
   }
 
@@ -280,9 +280,9 @@ export class FeedbackRepository {
         dismissed: feedback.dismissed,
         createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId, newScheduledDeletion }, 'Error updating scheduled deletion');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId, newScheduledDeletion }, 'Error updating scheduled deletion');
+      throw err;
     }
   }
 
@@ -310,17 +310,12 @@ export class FeedbackRepository {
       });
 
       return result.deletedCount;
-    } catch (error) {
-      logger.error({ err: error, daysOld }, 'Error cleaning up old feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err, daysOld }, 'Error cleaning up old feedback');
+      throw err;
     }
   }
 }
-
-// Helper to convert number to Long (MongoDB's 64-bit integer type)
-const Long = {
-  fromNumber: (num) => num,
-};
 
 // Export singleton instance
 export default new FeedbackRepository();
