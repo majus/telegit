@@ -8,6 +8,7 @@ import { isGroupAuthenticated } from './auth-check.js';
 import { setAnalyzingReaction, setErrorReaction } from './reactions.js';
 import { gatherThreadContext } from './thread-context.js';
 import { postFeedback } from './feedback.js';
+import { startSetupSession } from './auth-setup.js';
 import { OperationsRepository } from '../../database/repositories/operations.js';
 import logger from '../../utils/logger.js';
 
@@ -162,6 +163,10 @@ Once configured, I'll be able to create and manage GitHub issues from this chat!
       reply_to_message_id: message.message_id,
     });
 
+    // Create a setup session for the user
+    startSetupSession(userId, chatId);
+    logger.debug({ userId, chatId }, 'Created setup session for user');
+
     // Also try to send a DM to guide the user
     try {
       await ctx.telegram.sendMessage(
@@ -176,6 +181,7 @@ I'll need:
 
 Ready? Send me your repository URL to get started!`
       );
+      logger.debug({ userId }, 'Setup DM sent successfully');
     } catch (dmError) {
       // User might not have started a conversation with the bot
       logger.debug({ err: dmError, userId }, 'Could not send DM to user (they may need to start the bot first)');

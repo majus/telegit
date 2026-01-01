@@ -49,3 +49,39 @@ export interface TemporaryMessage {
   messageId: number;
   expiresAt: Date;
 }
+
+/**
+ * Message context type alias
+ */
+export type MessageContext = TelegrafContext;
+
+/**
+ * Filter result for group messages
+ */
+export interface FilterResult {
+  shouldProcess: boolean;
+  triggered: boolean;
+  hasAccess: boolean;
+  reason: string | null;
+  metadata: {
+    botMentioned: boolean;
+    hashtags: string[];
+    chatAllowed: boolean;
+    userAllowed: boolean;
+    chatId: number | null;
+    userId: number | null;
+  };
+}
+
+/**
+ * Filter result for private messages
+ */
+export interface PrivateMessageFilterResult {
+  shouldProcess: boolean;
+  isWhitelisted: boolean;
+  hasSession: boolean;
+  reason: string | null;
+  metadata: {
+    userId: number | null;
+  };
+}

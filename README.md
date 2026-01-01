@@ -78,11 +78,21 @@ You may include hashtags to categorize your intent more explicitly, e.g., `#todo
 Restrict bot access using environment variables:
 
 ```bash
-ALLOWED_GROUPS="-123456789,-987654321"  # Comma-separated group IDs (negative numbers)
-ALLOWED_USERS="123456789,987654321"     # Comma-separated user IDs (positive numbers)
+# Chat/Group Whitelist (required)
+TELEGRAM_CHAT_IDS="-123456789,-987654321"  # Comma-separated group IDs (negative numbers)
+
+# User Whitelist (optional)
+TELEGRAM_USER_IDS="123456789,987654321"    # Comma-separated user IDs (positive numbers)
 ```
 
-If not set, all groups/users are allowed. Both whitelists can be combined.
+**Chat Whitelist (`TELEGRAM_CHAT_IDS`)**: Required. Specifies which Telegram groups/chats the bot will respond to.
+
+**User Whitelist (`TELEGRAM_USER_IDS`)**: Optional. When set, applies user-level access control:
+- **Group messages**: User must be in BOTH chat whitelist AND user whitelist
+- **Private messages**: User must be in user whitelist to complete GitHub setup
+- **If not set**: All users are allowed (backward compatible)
+
+Both whitelists work together to provide fine-grained access control. This dual-whitelist approach prevents unauthorized users from using the bot even in whitelisted groups.
 
 ## Security
 

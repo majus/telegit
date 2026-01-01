@@ -10,7 +10,9 @@ import { testConnection, closePool } from './database/db.js';
 import { initializeBot, getBotInfo } from './services/telegram/bot.js';
 import { createMessageHandler, handleEditedMessage } from './services/telegram/handlers.js';
 import { handleReaction } from './services/telegram/reaction-handler.js';
-import { filterMessage } from './services/telegram/filters.js';
+import { createFilterMiddleware } from './services/telegram/filters.js';
+import { createPrivateMessageHandler } from './services/telegram/private-message-handler.js';
+import { getSetupSession, cleanupExpiredSessions } from './services/telegram/auth-setup.js';
 import { processMessage } from './ai/processor.js';
 import { messageQueue, Priority } from './queue/message-queue.js';
 import { query } from './database/db.js';
@@ -63,16 +65,35 @@ async function startApplication() {
       firstName: botInfo.first_name,
     }, '✓ Bot initialized');
 
-    // Step 4: Register middleware and handlers
+    // Step 4: Build filter options from config
+    const filterOptions = {
+      allowedChatIds: config.telegram.allowedChatIds,
+      allowedUserIds: config.telegram.allowedUserIds,
+      hasActiveSession: (userId) => getSetupSession(userId) !== null,
+      logFiltered: config.app.logLevel === 'debug',
+    };
+
+    // Step 5: Register middleware and handlers
     logger.info('Registering bot handlers...');
-    registerBotHandlers(bot);
+    registerBotHandlers(bot, filterOptions);
     logger.info('✓ Bot handlers registered');
 
-    // Step 5: Create Express app
+    // Step 6: Setup session cleanup interval (every 5 minutes)
+    const sessionCleanupInterval = setInterval(() => {
+      const cleaned = cleanupExpiredSessions();
+      if (cleaned > 0) {
+        logger.info({ count: cleaned }, 'Cleaned up expired setup sessions');
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Store interval for cleanup during shutdown
+    global.sessionCleanupInterval = sessionCleanupInterval;
+
+    // Step 7: Create Express app
     logger.info('Creating Express application...');
     const app = express();
 
-    // Step 6: Mount health check routes
+    // Step 8: Mount health check routes
     const dbDependency = { db: { query } };
     app.get('/api/health', healthCheckHandler(dbDependency));
     app.get('/api/metrics', metricsHandler());
@@ -80,7 +101,7 @@ async function startApplication() {
     app.get('/api/live', livenessHandler());
     logger.info('✓ Health check routes mounted');
 
-    // Step 7: Mount Telegraf webhook (production only)
+    // Step 9: Mount Telegraf webhook (production only)
     if (useWebhook) {
       const webhookDomain = process.env.WEBHOOK_DOMAIN;
       const webhookPath = process.env.WEBHOOK_PATH || '/telegram-webhook';
@@ -104,13 +125,13 @@ async function startApplication() {
       logger.info('✓ Bot started in polling mode');
     }
 
-    // Step 9: Start Express server
+    // Step 10: Start Express server
     const port = config.app.port;
     server = app.listen(port, () => {
       logger.info({ port, mode: useWebhook ? 'webhook' : 'polling' }, '✓ Express server started');
     });
 
-    // Step 9: Setup graceful shutdown
+    // Step 11: Setup graceful shutdown
     setupGracefulShutdown();
 
     logger.info('✅ TeleGit is running!');
@@ -127,40 +148,47 @@ async function startApplication() {
 
 /**
  * Register bot middleware and handlers
+ * @param {Object} botInstance - Telegraf bot instance
+ * @param {Object} filterOptions - Filter options for message filtering
  */
-function registerBotHandlers(botInstance) {
-  // Middleware: Filter messages
+function registerBotHandlers(botInstance, filterOptions) {
+  // Middleware: Store bot info in context
   botInstance.use(async (ctx, next) => {
-    // Store bot info in context
     if (!ctx.botInfo) {
       ctx.botInfo = await getBotInfo(botInstance);
     }
-
-    // Filter messages
-    if (ctx.message || ctx.editedMessage) {
-      const filterResult = filterMessage(ctx);
-      ctx.state = ctx.state || {};
-      ctx.state.filterResult = filterResult;
-
-      if (!filterResult.shouldProcess) {
-        logger.debug({
-          chatId: ctx.chat?.id,
-          messageId: (ctx.message || ctx.editedMessage)?.message_id,
-          reason: filterResult.reason,
-        }, 'Message filtered out');
-        return;
-      }
-    }
-
     return next();
   });
 
-  // Handler: New messages
-  botInstance.on('message', createMessageHandler(queueMessageProcessing));
+  // Middleware: Filter messages using factory
+  botInstance.use(createFilterMiddleware(filterOptions));
 
-  // Handler: Edited messages
+  // Create private message handler
+  const privateMessageHandler = createPrivateMessageHandler();
+
+  // Handler: New messages - route based on message type
+  botInstance.on('message', async (ctx) => {
+    if (ctx.state.isPrivateMessage) {
+      // Route private messages to setup handler
+      await privateMessageHandler(ctx);
+    } else if (ctx.state.isGroupMessage) {
+      // Route group messages to AI workflow
+      const handler = createMessageHandler(queueMessageProcessing);
+      await handler(ctx);
+    }
+  });
+
+  // Handler: Edited messages - only process group messages
   botInstance.on('edited_message', async (ctx) => {
-    await handleEditedMessage(ctx, queueMessageProcessing);
+    // Skip private messages for edited_message
+    if (ctx.state.isPrivateMessage) {
+      logger.debug({ userId: ctx.from?.id }, 'Skipping edited private message');
+      return;
+    }
+
+    if (ctx.state.isGroupMessage) {
+      await handleEditedMessage(ctx, queueMessageProcessing);
+    }
   });
 
   // Handler: Message reactions (for undo/dismiss)
@@ -237,14 +265,20 @@ function setupGracefulShutdown() {
     logger.info({ signal }, 'Received shutdown signal');
 
     try {
-      // Step 1: Stop accepting new messages
+      // Step 1: Clear session cleanup interval
+      if (global.sessionCleanupInterval) {
+        clearInterval(global.sessionCleanupInterval);
+        logger.info('✓ Session cleanup interval cleared');
+      }
+
+      // Step 2: Stop accepting new messages
       logger.info('Stopping bot...');
       if (bot) {
         await bot.stop();
         logger.info('✓ Bot stopped');
       }
 
-      // Step 2: Wait for message queue to empty (with timeout)
+      // Step 3: Wait for message queue to empty (with timeout)
       logger.info('Waiting for message queue to empty...');
       const queueEmptied = await messageQueue.waitForEmpty(30000);
       if (queueEmptied) {
@@ -253,7 +287,7 @@ function setupGracefulShutdown() {
         logger.warn('⚠ Message queue timeout - forcing shutdown with pending messages');
       }
 
-      // Step 3: Close HTTP server
+      // Step 4: Close HTTP server
       if (server) {
         logger.info('Closing HTTP server...');
         await new Promise((resolve) => {
@@ -264,7 +298,7 @@ function setupGracefulShutdown() {
         });
       }
 
-      // Step 4: Close database connections
+      // Step 5: Close database connections
       logger.info('Closing database connections...');
       await closePool();
       logger.info('✓ Database connections closed');

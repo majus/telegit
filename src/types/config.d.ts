@@ -32,6 +32,7 @@ export interface ParsedConfig {
   telegram: {
     botToken: string;
     allowedChatIds: number[];
+    allowedUserIds: number[];
   };
   github: {
     mcpServerUrl: string;
