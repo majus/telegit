@@ -285,10 +285,20 @@ export function createFilterMiddleware(options = {}) {
     }
 
     const chatType = message.chat?.type;
+    const chatId = message.chat?.id;
     const isPrivate = chatType === 'private';
+
+    // Debug logging for chat type detection
+    logger.debug({
+      chatType,
+      chatId,
+      isPrivate,
+      messageText: message.text?.substring(0, 50),
+    }, 'Filter middleware: detecting message type');
 
     // Handle private messages - always route to handler
     if (isPrivate) {
+      logger.debug({ chatId }, 'Routing private message to handler');
       const privateResult = filterPrivateMessage(ctx, options);
       ctx.state.isPrivateMessage = true;
       ctx.state.privateFilterResult = privateResult;
@@ -296,6 +306,8 @@ export function createFilterMiddleware(options = {}) {
       // Always call next() for private messages - handler will determine response
       return next();
     }
+
+    logger.debug({ chatId, chatType }, 'Processing as group message');
 
     // Handle group messages - filter by trigger and whitelist
     const filterResult = filterMessage(ctx, options);
