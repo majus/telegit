@@ -5,6 +5,7 @@
  * Task 4.3.9: Implement Notify Node
  */
 
+import { escapeMarkdownV1 } from 'telegram-escape';
 import { setReaction } from '../../services/telegram/reactions.js';
 import { postFeedback } from '../../services/telegram/feedback.js';
 import { WorkflowStatus, IntentType } from '../state-schema.js';
@@ -41,16 +42,14 @@ function formatFeedbackMessage(state) {
   // Success case
   if (result?.success && result?.issueUrl) {
     const emoji = getSuccessEmoji(intent.intent);
-    return `${emoji} Issue created successfully!\n\n📎 ${result.issueUrl}`;
+    return `${emoji} Issue created successfully!\n\n📎 ${escapeMarkdownV1(result.issueUrl)}`;
   }
 
   // Error case (GitHub operation failed)
   if (result && !result.success && githubOperation?.data) {
     const { title } = githubOperation.data;
     const errorMsg = result.error || 'Unknown error';
-    // Escape special characters for Telegram markdown
-    const escapedError = errorMsg.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-    return `❌ Failed to create issue: "${title}"\n\nError: ${escapedError}`;
+    return `❌ Failed to create issue: "${escapeMarkdownV1(title)}"\n\nError: ${escapeMarkdownV1(errorMsg)}`;
   }
 
   // Unknown intent case
@@ -60,11 +59,13 @@ function formatFeedbackMessage(state) {
 
   // Low confidence case
   if (intent.confidence < 0.5) {
-    return `🤔 I'm not very confident about this request (${Math.round(intent.confidence * 100)}%).\n\nCould you rephrase or add more details?`;
+    const confidence = Math.round(intent.confidence * 100);
+    return `🤔 I'm not very confident about this request (${confidence}%).\n\nCould you rephrase or add more details?`;
   }
 
   // Default case
-  return `👌 Message analyzed successfully\\.\n\nIntent: ${intent.intent}\nConfidence: ${Math.round(intent.confidence * 100)}%`;
+  const confidence = Math.round(intent.confidence * 100);
+  return `👌 Message analyzed successfully.\n\nIntent: ${escapeMarkdownV1(intent.intent)}\nConfidence: ${confidence}%`;
 }
 
 /**
