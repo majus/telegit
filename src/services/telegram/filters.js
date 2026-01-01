@@ -7,7 +7,6 @@
  * - User whitelist (optional)
  */
 
-import { getConfig } from '../../../config/env.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -91,25 +90,22 @@ export function hasHashtags(ctx) {
 /**
  * Check if message is from an allowed chat/group
  * @param {MessageContext} ctx - Telegram message context
- * @param {number[]} [allowedChatIds] - List of allowed chat IDs (optional, defaults to config)
+ * @param {number[]} allowedChatIds - List of allowed chat IDs (required)
  * @returns {boolean} True if chat is allowed
  */
-export function isFromAllowedChat(ctx, allowedChatIds = null) {
+export function isFromAllowedChat(ctx, allowedChatIds) {
   const message = ctx.message || ctx.editedMessage;
   if (!message) return false;
 
   const chatId = message.chat?.id;
   if (!chatId) return false;
 
-  // Get allowed chat IDs from config if not provided (undefined means use config)
-  const allowed = allowedChatIds === undefined ? getConfig().telegram.allowedChatIds : allowedChatIds;
-
   // If no whitelist is configured, allow all
-  if (!allowed || allowed.length === 0) {
+  if (!allowedChatIds || allowedChatIds.length === 0) {
     return true;
   }
 
-  return allowed.includes(chatId);
+  return allowedChatIds.includes(chatId);
 }
 
 /**
@@ -143,6 +139,63 @@ export function isFromAllowedUser(ctx, allowedUserIds = null) {
  */
 export function isTriggered(ctx) {
   return isBotMentioned(ctx) || hasHashtags(ctx);
+}
+
+/**
+ * Filter private messages for setup workflow routing
+ * Private messages always pass through to handler, which determines response
+ * based on whitelist status and session state
+ * @param {MessageContext} ctx - Telegram message context
+ * @param {Object} [options] - Filter options
+ * @param {number[]} [options.allowedUserIds] - List of allowed user IDs
+ * @param {Function} [options.hasActiveSession] - Function to check if user has active session
+ * @returns {Object} Private message filter result
+ */
+export function filterPrivateMessage(ctx, options = {}) {
+  const result = {
+    shouldProcess: false,
+    isWhitelisted: false,
+    hasSession: false,
+    reason: null,
+    metadata: {
+      userId: null,
+    },
+  };
+
+  const message = ctx.message || ctx.editedMessage;
+  if (!message) {
+    result.reason = 'No message found in context';
+    return result;
+  }
+
+  const userId = message.from?.id;
+  result.metadata.userId = userId;
+
+  if (!userId) {
+    result.reason = 'No user ID found';
+    return result;
+  }
+
+  // Check user whitelist
+  result.isWhitelisted = isFromAllowedUser(ctx, options.allowedUserIds);
+
+  if (!result.isWhitelisted) {
+    result.reason = `User ${userId} is not in whitelist`;
+    return result;
+  }
+
+  // Check session status if function provided
+  if (options.hasActiveSession) {
+    result.hasSession = options.hasActiveSession(userId);
+  }
+
+  // User is whitelisted - handler will determine appropriate response
+  result.shouldProcess = result.hasSession;
+  result.reason = result.hasSession
+    ? 'User has active session'
+    : 'User is whitelisted but has no active session';
+
+  return result;
 }
 
 /**
@@ -214,10 +267,11 @@ export function filterMessage(ctx, options = {}) {
 
 /**
  * Telegraf middleware for message filtering
- * Only allows triggered messages from whitelisted chats/users to proceed
+ * Routes private messages to handler, filters group messages by trigger and whitelist
  * @param {Object} [options] - Filter options
  * @param {number[]} [options.allowedChatIds] - List of allowed chat IDs
  * @param {number[]} [options.allowedUserIds] - List of allowed user IDs
+ * @param {Function} [options.hasActiveSession] - Function to check if user has active session
  * @param {boolean} [options.logFiltered] - Whether to log filtered messages
  * @returns {Function} Telegraf middleware function
  */
@@ -225,11 +279,31 @@ export function createFilterMiddleware(options = {}) {
   const logFiltered = options.logFiltered ?? false;
 
   return async (ctx, next) => {
+    const message = ctx.message || ctx.editedMessage;
+    if (!message) {
+      return; // No message to process
+    }
+
+    const chatType = message.chat?.type;
+    const isPrivate = chatType === 'private';
+
+    // Handle private messages - always route to handler
+    if (isPrivate) {
+      const privateResult = filterPrivateMessage(ctx, options);
+      ctx.state.isPrivateMessage = true;
+      ctx.state.privateFilterResult = privateResult;
+
+      // Always call next() for private messages - handler will determine response
+      return next();
+    }
+
+    // Handle group messages - filter by trigger and whitelist
     const filterResult = filterMessage(ctx, options);
 
     if (filterResult.shouldProcess) {
       // Attach filter metadata to context for use in handlers
       ctx.state.filterResult = filterResult;
+      ctx.state.isGroupMessage = true;
       return next();
     }
 

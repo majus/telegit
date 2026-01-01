@@ -14,6 +14,7 @@ const envSchema = z.object({
   // Telegram Bot Configuration
   TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
   TELEGRAM_CHAT_IDS: z.string().min(1, 'TELEGRAM_CHAT_IDS is required'),
+  TELEGRAM_USER_IDS: z.string().optional().default(''),
 
   // GitHub Configuration
   GITHUB_MCP_SERVER_URL: z.string().url().optional().default('http://localhost:3000/mcp'),
@@ -68,11 +69,28 @@ export function loadConfig() {
       socketTimeoutMS: 30000,
     };
 
+    // Parse TELEGRAM_USER_IDS with validation and filtering
+    const rawUserIds = env.TELEGRAM_USER_IDS ? env.TELEGRAM_USER_IDS.split(',') : [];
+    const allowedUserIds = [];
+
+    for (const rawId of rawUserIds) {
+      const trimmedId = rawId.trim();
+      if (trimmedId === '') continue; // Skip empty strings
+
+      const parsedId = parseInt(trimmedId, 10);
+      if (isNaN(parsedId)) {
+        console.warn(`[Config] Invalid user ID in TELEGRAM_USER_IDS: "${rawId}" - skipping`);
+        continue;
+      }
+      allowedUserIds.push(parsedId);
+    }
+
     // Parse and transform into structured config
     const config = {
       telegram: {
         botToken: env.TELEGRAM_BOT_TOKEN,
         allowedChatIds: env.TELEGRAM_CHAT_IDS.split(',').map(id => parseInt(id.trim(), 10)),
+        allowedUserIds: allowedUserIds,
       },
       github: {
         mcpServerUrl: env.GITHUB_MCP_SERVER_URL,
