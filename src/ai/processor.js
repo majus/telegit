@@ -61,6 +61,7 @@ export async function processMessage(telegramMessage, options = {}) {
     // Create initial workflow state
     const initialState = createInitialState(telegramMessage, groupConfig);
     initialState.conversationContext = conversationContext;
+    initialState.operationId = options.operationId || null;
 
     // Execute workflow
     const result = await executeWorkflow(initialState);

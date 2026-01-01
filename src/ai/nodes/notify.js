@@ -25,7 +25,7 @@ function getSuccessEmoji(intentType) {
     case IntentType.CREATE_IDEA:
       return '🦄'; // Idea logged
     default:
-      return '✅'; // Generic success
+      return '👌'; // Generic success (processing complete)
   }
 }
 
@@ -44,15 +44,18 @@ function formatFeedbackMessage(state) {
     return `${emoji} Issue created successfully!\n\n📎 ${result.issueUrl}`;
   }
 
-  // Pending case (GitHub operation prepared but not executed yet)
-  if (githubOperation && githubOperation.data) {
+  // Error case (GitHub operation failed)
+  if (result && !result.success && githubOperation?.data) {
     const { title } = githubOperation.data;
-    return `🔄 Prepared issue: "${title}"\n\n⏳ GitHub integration will be completed in Phase 5.`;
+    const errorMsg = result.error || 'Unknown error';
+    // Escape special characters for Telegram markdown
+    const escapedError = errorMsg.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+    return `❌ Failed to create issue: "${title}"\n\nError: ${escapedError}`;
   }
 
   // Unknown intent case
   if (intent.intent === IntentType.UNKNOWN) {
-    return `❓ I couldn't determine what action you want me to take.\n\nTry being more specific, or use keywords like "bug", "task", or "feature idea".`;
+    return `🤷 I couldn't determine what action you want me to take.\n\nTry being more specific, or use keywords like "bug", "task", or "feature idea".`;
   }
 
   // Low confidence case
@@ -61,7 +64,7 @@ function formatFeedbackMessage(state) {
   }
 
   // Default case
-  return `✅ Message analyzed successfully.\n\nIntent: ${intent.intent}\nConfidence: ${Math.round(intent.confidence * 100)}%`;
+  return `👌 Message analyzed successfully\\.\n\nIntent: ${intent.intent}\nConfidence: ${Math.round(intent.confidence * 100)}%`;
 }
 
 /**
@@ -83,13 +86,13 @@ export async function notifyNode(state) {
     // Update reaction to success emoji
     const emoji = result?.success
       ? getSuccessEmoji(intent.intent)
-      : (intent.intent === IntentType.UNKNOWN ? '❓' : '✅');
+      : (intent.intent === IntentType.UNKNOWN ? '🤷' : '👌');
 
     await setReaction(chatId, messageId, emoji);
 
     // Post feedback message
     const feedbackMessage = formatFeedbackMessage(state);
-    const feedbackMessageId = await postFeedback(chatId, messageId, feedbackMessage);
+    const feedbackMessageId = await postFeedback(chatId, messageId, feedbackMessage, state.operationId);
 
     return {
       ...state,

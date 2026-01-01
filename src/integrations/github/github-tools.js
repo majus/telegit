@@ -45,11 +45,11 @@ export class GitHubTools {
         useStandardContentBlocks: true,
         mcpServers: {
           github: {
+            type: 'http',
             url: config.github.mcpServerUrl,
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
-            automaticSSEFallback: true,
           },
         },
       });
@@ -58,18 +58,28 @@ export class GitHubTools {
       await this.mcpClient.initializeConnections();
 
       // Load and cache tools
-      this.tools = await this.mcpClient.getTools();
+      const allTools = await this.mcpClient.getTools();
+
+      // Log all available tools for debugging
+      logger.info(
+        {
+          toolCount: allTools.length,
+          toolNames: allTools.map(t => t.name),
+          allTools: allTools.map(t => ({ name: t.name, description: t.description }))
+        },
+        'All available MCP tools'
+      );
 
       // Filter to only GitHub issue tools
-      this.tools = this.tools.filter(tool =>
-        ['github_create_issue', 'github_update_issue', 'github_search_issues'].includes(
+      this.tools = allTools.filter(tool =>
+        ['issue_write', 'issue_read', 'search_issues', 'list_issues', 'add_issue_comment'].includes(
           tool.name
         )
       );
 
       if (this.tools.length === 0) {
         throw new Error(
-          'No GitHub issue tools found. Expected: github_create_issue, github_update_issue, github_search_issues'
+          `No GitHub issue tools found. Expected: issue_write, issue_read, search_issues. Available: ${allTools.map(t => t.name).join(', ')}`
         );
       }
 

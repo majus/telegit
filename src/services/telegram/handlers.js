@@ -78,7 +78,7 @@ export async function handleMessage(ctx, processMessageFn) {
       telegramMessageId: messageId,
       telegramUserId: userId,
       operationType: 'pending', // Will be updated by AI processor
-      status: 'queued',
+      status: 'pending',
       messageText: message.text || message.caption || '',
       metadata: {
         hashtags: filterResult.metadata.hashtags,

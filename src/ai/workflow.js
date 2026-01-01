@@ -9,6 +9,7 @@ import { StateGraph, END } from '@langchain/langgraph';
 import { WorkflowState, WorkflowStatus, IntentType } from './state-schema.js';
 import { analyzeNode } from './nodes/analyze.js';
 import { formatNode } from './nodes/format.js';
+import { executeNode } from './nodes/execute.js';
 import { storeNode } from './nodes/store.js';
 import { notifyNode } from './nodes/notify.js';
 import { errorNode } from './nodes/error.js';
@@ -27,9 +28,10 @@ export function createWorkflow() {
   // Add nodes to the graph
   workflow.addNode('analyze', analyzeNode);
   workflow.addNode('format', formatNode);
+  workflow.addNode('execute', executeNode);
   workflow.addNode('store', storeNode);
   workflow.addNode('notify', notifyNode);
-  workflow.addNode('error', errorNode);
+  workflow.addNode('handleError', errorNode);
 
   // Set entry point
   workflow.setEntryPoint('analyze');
@@ -37,12 +39,15 @@ export function createWorkflow() {
   // Add conditional edges from analyze node
   workflow.addConditionalEdges('analyze', routeAfterAnalysis, {
     format: 'format',
-    error: 'error',
+    error: 'handleError',
     unknown: END,
   });
 
   // Add edges from format node
-  workflow.addEdge('format', 'store');
+  workflow.addEdge('format', 'execute');
+
+  // Add edges from execute node
+  workflow.addEdge('execute', 'store');
 
   // Add edges from store node
   workflow.addEdge('store', 'notify');
@@ -50,8 +55,8 @@ export function createWorkflow() {
   // Add edges from notify node
   workflow.addEdge('notify', END);
 
-  // Add edge from error node
-  workflow.addEdge('error', END);
+  // Add edge from handleError node
+  workflow.addEdge('handleError', END);
 
   // Compile the workflow
   return workflow.compile();
@@ -86,9 +91,6 @@ function routeAfterAnalysis(state) {
   }
 
   // Route to format node for all actionable intents
-  // Note: In a complete implementation with Phase 5 (GitHub MCP Integration),
-  // we would route to search/create/update nodes here based on intent type.
-  // For now, we route to format which prepares the data for future GitHub operations.
   return 'format';
 }
 

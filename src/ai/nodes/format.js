@@ -135,7 +135,7 @@ export async function formatNode(state) {
       throw new Error('No intent found in state');
     }
 
-    if (!groupConfig || !groupConfig.repository) {
+    if (!groupConfig || !groupConfig.githubRepo) {
       throw new Error('No group configuration or repository found');
     }
 
@@ -144,7 +144,7 @@ export async function formatNode(state) {
     // Format the GitHub operation based on operation type
     const githubOperation = {
       type: operationType,
-      repository: groupConfig.repository,
+      repository: groupConfig.githubRepo,
       data: {},
     };
 

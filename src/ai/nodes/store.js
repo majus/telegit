@@ -23,7 +23,7 @@ export async function storeNode(state) {
     const operationData = {
       telegramGroupId: telegramMessage?.chat?.id,
       telegramMessageId: telegramMessage?.message_id,
-      operationType: githubOperation?.type || intent?.intent || 'unknown',
+      operationType: intent?.intent || 'unknown',
       githubIssueUrl: result?.issueUrl || null,
       operationData: {
         userId: telegramMessage?.from?.id,

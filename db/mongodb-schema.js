@@ -92,60 +92,61 @@ async function createGroupConfigsCollection(db) {
  * Create operations collection with validators and indexes
  */
 async function createOperationsCollection(db) {
-  try {
-    await db.createCollection('operations', {
-      validator: {
-        $jsonSchema: {
+  const validator = {
+    $jsonSchema: {
+      bsonType: 'object',
+      required: ['telegramGroupId', 'telegramMessageId', 'operationType', 'status', 'createdAt', 'updatedAt'],
+      properties: {
+        telegramGroupId: {
+          bsonType: 'long',
+          description: 'Telegram group ID',
+        },
+        telegramMessageId: {
+          bsonType: 'long',
+          description: 'Telegram message ID',
+        },
+        operationType: {
+          enum: ['pending', 'create_bug', 'create_task', 'create_idea', 'update_issue', 'search_issues'],
+          description: 'Type of GitHub operation',
+        },
+        status: {
+          enum: ['pending', 'processing', 'completed', 'failed', 'undone'],
+          description: 'Operation status',
+        },
+        operationData: {
           bsonType: 'object',
-          required: ['telegramGroupId', 'telegramMessageId', 'operationType', 'status', 'createdAt', 'updatedAt'],
-          properties: {
-            telegramGroupId: {
-              bsonType: 'long',
-              description: 'Telegram group ID',
-            },
-            telegramMessageId: {
-              bsonType: 'long',
-              description: 'Telegram message ID',
-            },
-            operationType: {
-              enum: ['create_bug', 'create_task', 'create_idea', 'update_issue', 'search_issues'],
-              description: 'Type of GitHub operation',
-            },
-            status: {
-              enum: ['pending', 'processing', 'completed', 'failed', 'undone'],
-              description: 'Operation status',
-            },
-            operationData: {
-              bsonType: 'object',
-              description: 'Operation metadata (issue URL, error details, etc.)',
-            },
-            createdAt: {
-              bsonType: 'date',
-              description: 'Creation timestamp',
-            },
-            updatedAt: {
-              bsonType: 'date',
-              description: 'Last update timestamp',
-            },
-          },
+          description: 'Operation metadata (issue URL, error details, etc.)',
+        },
+        createdAt: {
+          bsonType: 'date',
+          description: 'Creation timestamp',
+        },
+        updatedAt: {
+          bsonType: 'date',
+          description: 'Last update timestamp',
         },
       },
-    });
-
-    // Create indexes
-    await db.collection('operations').createIndex({ telegramGroupId: 1 });
-    await db.collection('operations').createIndex({ telegramMessageId: 1 });
-    await db.collection('operations').createIndex({ status: 1 });
-    await db.collection('operations').createIndex({ createdAt: -1 });
-
+    },
+  };
+  try {
+    await db.createCollection('operations', { validator });
     logger.info('Created operations collection');
   } catch (error) {
     if (error.code === 48) {
-      logger.info('operations collection already exists');
+      logger.info('operations collection already exists, updating validator');
+      await db.command({
+        collMod: 'operations',
+        validator,
+      });
+      logger.info('Updated operations collection validator');
     } else {
       throw error;
     }
   }
+  await db.collection('operations').createIndex({ telegramGroupId: 1 });
+  await db.collection('operations').createIndex({ telegramMessageId: 1 });
+  await db.collection('operations').createIndex({ status: 1 });
+  await db.collection('operations').createIndex({ createdAt: -1 });
 }
 
 /**

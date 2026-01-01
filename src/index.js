@@ -235,6 +235,7 @@ async function queueMessageProcessing(ctx, operationId, threadContext) {
       const result = await processMessage(message, {
         skipContextGathering: true,
         threadContext,
+        operationId,
       });
 
       return result;
