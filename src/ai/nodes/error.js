@@ -65,7 +65,7 @@ export async function errorNode(state) {
     }
 
     // Update reaction to error emoji
-    await setReaction(chatId, messageId, '😵‍💫');
+    await setReaction(chatId, messageId, '😱');
 
     // Post error feedback
     const errorMessage = formatErrorMessage(error);

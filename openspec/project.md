@@ -67,7 +67,7 @@ TeleGit is a minimalist AI-powered Telegram bot that converts chat messages into
 
 **Telegram Bot Workflow:**
 1. Message triggers bot if it contains mentions (`@TeleGitBot`) or hashtags (`#bug`, `#task`, `#idea`)
-2. Bot reacts with emoji status indicators (👀 analyzing → 🤔 processing → 👾/🫡/🦄 success or 😵‍💫 error)
+2. Bot reacts with emoji status indicators (👀 analyzing → 🤔 processing → 👾/🫡/🦄 success or 😱 error)
 3. LLM classifies intent and extracts structured data
 4. GitHub MCP server creates/updates/deletes issues
 5. Feedback message posted with links (auto-deleted after 10 minutes)

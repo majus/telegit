@@ -51,7 +51,7 @@ Messages without mentions or hashtags are ignored to reduce unnecessary LLM usag
    - 👾 - bug recorded
    - 🫡 - task issued
    - 🦄 - idea logged
-   - 😵‍💫 - error occurred
+   - 😱 - error occurred
 6. Post a feedback message with:
    - Link to the created/updated/deleted GitHub issue, OR
    - Error description if something went wrong

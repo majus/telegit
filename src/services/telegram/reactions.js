@@ -19,7 +19,7 @@ export const StatusReactions = {
   SUCCESS_BUG: '👾', // Successfully created bug issue
   SUCCESS_TASK: '🫡', // Successfully created task issue
   SUCCESS_IDEA: '🦄', // Successfully created idea/feature
-  ERROR: '😵‍💫', // Error occurred during processing
+  ERROR: '😱', // Error occurred during processing
 };
 
 /**
@@ -155,7 +155,7 @@ export async function setSuccessReaction(chatId, messageId, operationType, botIn
 }
 
 /**
- * Set error reaction (😵‍💫)
+ * Set error reaction (😱)
  * @param {number} chatId - Chat ID
  * @param {number} messageId - Message ID
  * @param {TelegrafBot} [botInstance] - Bot instance
