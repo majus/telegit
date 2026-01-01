@@ -134,6 +134,69 @@ telegit/
 - Use emojis for bot status indicators as specified in README.md
 - Follow minimalist, non-disruptive design philosophy
 
+### Message Filtering Architecture
+
+**Overview:**
+Message filtering is handled by a modular middleware system that separates trigger detection from access control. The system supports dual-whitelist access control (chat-level and user-level) while maintaining backward compatibility.
+
+**Core Components:**
+
+1. **Filter Functions** (`src/services/telegram/filters.js`):
+   - `isBotMentioned(ctx)` - Detects @botname mentions
+   - `hasHashtags(ctx)` - Detects hashtags in messages
+   - `isFromAllowedChat(ctx, allowedChatIds)` - Chat whitelist validation
+   - `isFromAllowedUser(ctx, allowedUserIds)` - User whitelist validation (optional)
+   - `filterMessage(ctx, options)` - Complete group message filtering
+   - `filterPrivateMessage(ctx, options)` - Private message routing logic
+   - `createFilterMiddleware(options)` - Telegraf middleware factory
+
+2. **Private Message Handler** (`src/services/telegram/private-message-handler.js`):
+   - Routes private messages based on whitelist status
+   - Displays error for non-whitelisted users
+   - Routes whitelisted users to GitHub setup workflow
+
+3. **Access Control Pattern:**
+   ```javascript
+   // In src/index.js - Build filter options from config
+   const filterOptions = {
+     allowedChatIds: config.telegram.allowedChatIds,  // Required
+     allowedUserIds: config.telegram.allowedUserIds,  // Optional (empty = allow all)
+     hasActiveSession: (userId) => getSetupSession(userId) !== null,
+     logFiltered: config.app.logLevel === 'debug',
+   };
+
+   // Register middleware
+   bot.use(createFilterMiddleware(filterOptions));
+
+   // Route by message type
+   bot.on('message', async (ctx) => {
+     if (ctx.state.isPrivateMessage) {
+       await privateMessageHandler(ctx);
+     } else if (ctx.state.isGroupMessage) {
+       await groupMessageHandler(ctx);
+     }
+   });
+   ```
+
+4. **Whitelist Behavior:**
+   - **Chat Whitelist** (`TELEGRAM_CHAT_IDS`): Required, controls which groups bot responds to
+   - **User Whitelist** (`TELEGRAM_USER_IDS`): Optional, adds user-level filtering
+   - **Backward Compatibility**: Empty user whitelist allows all users (existing behavior)
+   - **Combined Logic**: User must pass BOTH chat AND user whitelist (if user whitelist is set)
+
+5. **State Flags:**
+   - `ctx.state.isPrivateMessage` - Set by middleware for private chats
+   - `ctx.state.isGroupMessage` - Set by middleware for filtered group messages
+   - `ctx.state.filterResult` - Detailed filter information for group messages
+   - `ctx.state.privateFilterResult` - Filter information for private messages
+
+**Implementation Notes:**
+- Filters are decoupled from config - always pass whitelists as explicit parameters
+- Private messages always route to handler (whitelist check happens in handler)
+- Group messages are filtered before routing (only triggered + whitelisted messages proceed)
+- Use `createFilterMiddleware()` factory to create middleware with configuration
+- Avoid importing `getConfig()` in filter functions for better testability
+
 ## Git Workflow
 
 - Use descriptive branch names

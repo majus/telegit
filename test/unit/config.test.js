@@ -37,6 +37,44 @@ describe('Configuration Loader', () => {
     expect(typeof config.telegram.allowedChatIds[0]).toBe('number');
   });
 
+  it('should parse Telegram user IDs when provided', () => {
+    process.env.TELEGRAM_USER_IDS = '123456,789012,345678';
+    const config = loadConfig();
+
+    expect(config.telegram.allowedUserIds).toBeInstanceOf(Array);
+    expect(config.telegram.allowedUserIds).toEqual([123456, 789012, 345678]);
+  });
+
+  it('should allow all users when TELEGRAM_USER_IDS is empty (backward compatibility)', () => {
+    process.env.TELEGRAM_USER_IDS = '';
+    const config = loadConfig();
+
+    expect(config.telegram.allowedUserIds).toBeInstanceOf(Array);
+    expect(config.telegram.allowedUserIds).toEqual([]);
+  });
+
+  it('should allow all users when TELEGRAM_USER_IDS is not set (backward compatibility)', () => {
+    delete process.env.TELEGRAM_USER_IDS;
+    const config = loadConfig();
+
+    expect(config.telegram.allowedUserIds).toBeInstanceOf(Array);
+    expect(config.telegram.allowedUserIds).toEqual([]);
+  });
+
+  it('should skip invalid user IDs in TELEGRAM_USER_IDS', () => {
+    process.env.TELEGRAM_USER_IDS = '123456,invalid,789012,,  ,345678';
+    const config = loadConfig();
+
+    expect(config.telegram.allowedUserIds).toEqual([123456, 789012, 345678]);
+  });
+
+  it('should trim whitespace from user IDs', () => {
+    process.env.TELEGRAM_USER_IDS = ' 123456 , 789012 , 345678 ';
+    const config = loadConfig();
+
+    expect(config.telegram.allowedUserIds).toEqual([123456, 789012, 345678]);
+  });
+
   it('should validate environment successfully', () => {
     expect(() => validateEnv()).not.toThrow();
   });
