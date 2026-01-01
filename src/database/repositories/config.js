@@ -229,10 +229,5 @@ export class ConfigRepository {
   }
 }
 
-// Helper to convert number to Long (MongoDB's 64-bit integer type)
-const Long = {
-  fromNumber: (num) => num,
-};
-
 // Export singleton instance
 export default new ConfigRepository();
