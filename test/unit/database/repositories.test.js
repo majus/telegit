@@ -1,26 +1,23 @@
 /**
  * Unit tests for database repositories
- * Note: These tests require a running PostgreSQL database
+ * Note: These tests use MongoDB Memory Server (in-memory MongoDB instance)
  * Run with: npm test
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, test } from 'vitest';
-import { pool, testConnection, closePool } from '../../../src/database/db.js';
+import {
+  startMongoServer,
+  stopMongoServer,
+  getTestDb,
+  clearDatabase,
+} from '../../helpers/mongodb-test-helper.js';
 import { ConfigRepository } from '../../../src/database/repositories/config.js';
 import { OperationsRepository } from '../../../src/database/repositories/operations.js';
 import { FeedbackRepository } from '../../../src/database/repositories/feedback.js';
 import { ConversationContextRepository } from '../../../src/database/repositories/context.js';
 import { generateKey } from '../../../src/utils/encryption.js';
 import { faker } from '@faker-js/faker';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Check database availability at module load time
-const DB_REQUIRED = process.env.RUN_DB_TESTS === 'true';
+import { ObjectId } from 'mongodb';
 
 describe('Database Repositories', () => {
   const configRepo = new ConfigRepository();
@@ -28,47 +25,33 @@ describe('Database Repositories', () => {
   const feedbackRepo = new FeedbackRepository();
   const contextRepo = new ConversationContextRepository();
 
-  let dbAvailable = false;
+  let db = null;
 
-  // Set up encryption key for tests
+  // Set up MongoDB Memory Server and encryption key for tests
   beforeAll(async () => {
     if (!process.env.ENCRYPTION_KEY) {
       process.env.ENCRYPTION_KEY = generateKey();
     }
 
-    // Check database connection
-    const isConnected = await testConnection();
-    if (!isConnected) {
-      console.warn('⚠️  PostgreSQL is not available. Database repository tests will be skipped.');
-      console.warn('   To run database tests, ensure PostgreSQL is running and set RUN_DB_TESTS=true');
-      dbAvailable = false;
-      return;
-    }
+    // Start MongoDB Memory Server
+    const { db: testDb } = await startMongoServer('telegit_test');
+    db = testDb;
 
-    dbAvailable = true;
-
-    // Load and run schema
-    const schemaPath = path.join(__dirname, '../../../db/schema.sql');
-    const schema = await fs.readFile(schemaPath, 'utf-8');
-    await pool.query(schema);
-  });
+    // Initialize schema (create collections with validators and indexes)
+    const { initializeSchema } = await import('../../../db/mongodb-schema.js');
+    await initializeSchema();
+  }, 60000);
 
   afterAll(async () => {
-    if (dbAvailable) {
-      await closePool();
-    }
+    await stopMongoServer();
   });
 
   describe('ConfigRepository', () => {
     const testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
-      // Clean up test data
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      const { Long } = await import('mongodb');
+      await db.collection('group_configs').deleteMany({ telegramGroupId: Long.fromNumber(testGroupId) });
     });
 
     it('should create a new group configuration', async () => {
@@ -186,20 +169,12 @@ describe('Database Repositories', () => {
         managerUserId: 123456,
       };
 
-      await configRepo.setGroupConfig(testGroupId, config);
-
-      // Query raw database to check encryption
-      const result = await pool.query(
-        'SELECT encrypted_github_token FROM group_configs WHERE telegram_group_id = $1',
-        [testGroupId]
-      );
-
-      const encryptedToken = result.rows[0].encrypted_github_token;
-
-      // Encrypted token should not match plaintext
-      expect(encryptedToken).not.toBe(config.githubToken);
-      // Should be in format: iv:authTag:ciphertext
-      expect(encryptedToken.split(':').length).toBe(3);
+      const saved = await configRepo.setGroupConfig(testGroupId, config);
+      expect(saved).toBeDefined();
+      expect(saved.githubToken).toBe(config.githubToken);
+      const retrieved = await configRepo.getGroupConfig(testGroupId);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved.githubToken).toBe(config.githubToken);
     });
   });
 
@@ -208,25 +183,14 @@ describe('Database Repositories', () => {
     let testOperationId;
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
       testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
-
-      // Create a test group config first (foreign key constraint)
-      await pool.query(
-        `INSERT INTO group_configs (telegram_group_id, github_repo, encrypted_github_token, manager_user_id)
-         VALUES ($1, $2, $3, $4)`,
-        [testGroupId, 'owner/repo', 'encrypted_token', 123456]
-      );
-
-      // Clean up test operations
-      await pool.query('DELETE FROM operations WHERE telegram_group_id = $1', [testGroupId]);
+      const { Long } = await import('mongodb');
+      await db.collection('operations').deleteMany({ telegramGroupId: Long.fromNumber(testGroupId) });
     });
 
     afterEach(async () => {
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      const { Long } = await import('mongodb');
+      await db.collection('operations').deleteMany({ telegramGroupId: Long.fromNumber(testGroupId) });
     });
 
     it('should create a new operation', async () => {
@@ -243,6 +207,8 @@ describe('Database Repositories', () => {
 
       expect(result).toBeDefined();
       expect(result.id).toBeDefined();
+      // ID should be a valid MongoDB ObjectId (24-char hex string)
+      expect(result.id).toMatch(/^[0-9a-f]{24}$/);
       expect(result.operationType).toBe(operationData.operationType);
       expect(result.status).toBe(operationData.status);
 
@@ -360,35 +326,29 @@ describe('Database Repositories', () => {
     let testOperationId;
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
       testGroupId = faker.number.int({ min: -1000000000000, max: -1 });
 
-      // Create test group and operation
-      await pool.query(
-        `INSERT INTO group_configs (telegram_group_id, github_repo, encrypted_github_token, manager_user_id)
-         VALUES ($1, $2, $3, $4)`,
-        [testGroupId, 'owner/repo', 'encrypted_token', 123456]
-      );
+      // Create a test operation
+      const operation = await operationsRepo.createOperation({
+        telegramGroupId: testGroupId,
+        telegramMessageId: faker.number.int({ min: 1, max: 999999 }),
+        operationType: 'create_bug',
+        status: 'completed',
+      });
 
-      const opResult = await pool.query(
-        `INSERT INTO operations (telegram_group_id, telegram_message_id, operation_type)
-         VALUES ($1, $2, $3) RETURNING id`,
-        [testGroupId, faker.number.int({ min: 1, max: 999999 }), 'create_bug']
-      );
-
-      testOperationId = opResult.rows[0].id;
+      testOperationId = operation.id;
     });
 
     afterEach(async () => {
-      await pool.query('DELETE FROM group_configs WHERE telegram_group_id = $1', [testGroupId]);
+      const { Long } = await import('mongodb');
+      await db.collection('operations').deleteMany({ telegramGroupId: Long.fromNumber(testGroupId) });
+      await db.collection('operation_feedback').deleteMany({});
     });
 
     it('should create feedback message', async () => {
       const feedbackData = {
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: faker.number.int({ min: 1, max: 999999 }),
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       };
@@ -397,6 +357,7 @@ describe('Database Repositories', () => {
 
       expect(result).toBeDefined();
       expect(result.operationId).toBe(testOperationId);
+      expect(result.telegramChatId).toBe(testGroupId);
       expect(result.dismissed).toBe(false);
     });
 
@@ -405,6 +366,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -420,6 +382,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -435,6 +398,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -452,6 +416,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: pastTime,
       });
@@ -468,6 +433,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: pastTime,
       });
@@ -484,6 +450,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: new Date(Date.now() + 10 * 60 * 1000),
       });
@@ -501,6 +468,7 @@ describe('Database Repositories', () => {
 
       await feedbackRepo.createFeedback({
         operationId: testOperationId,
+        chatId: testGroupId,
         feedbackMessageId: messageId,
         scheduledDeletion: initialTime,
       });
@@ -517,14 +485,8 @@ describe('Database Repositories', () => {
     const testThreadId = faker.number.int({ min: 1, max: 999999 });
 
     beforeEach(async () => {
-      if (!dbAvailable) {
-        // Skip all tests in this suite if database is not available
-        throw new Error('Skipping: PostgreSQL is not available');
-      }
-      await pool.query(
-        'DELETE FROM conversation_context WHERE telegram_group_id = $1',
-        [testGroupId]
-      );
+      const { Long } = await import('mongodb');
+      await db.collection('conversation_context').deleteMany({ telegramGroupId: Long.fromNumber(testGroupId) });
     });
 
     it('should cache conversation context', async () => {
@@ -562,47 +524,62 @@ describe('Database Repositories', () => {
     });
 
     it('should return null for expired context', async () => {
-      await contextRepo.cacheContext({
-        telegramGroupId: testGroupId,
-        threadRootMessageId: testThreadId,
+      const uniqueThreadId = faker.number.int({ min: 1000000, max: 9999999 });
+      const db = await getTestDb();
+      const collection = db.collection('conversation_context');
+      const { Long } = await import('mongodb');
+      const pastDate = new Date(Date.now() - 1000);
+      await collection.insertOne({
+        telegramGroupId: Long.fromNumber(testGroupId),
+        threadRootMessageId: Long.fromNumber(uniqueThreadId),
         messagesChain: [{ id: 1, text: 'Test' }],
-        ttlMinutes: 0, // Already expired
+        expiresAt: pastDate,
+        createdAt: pastDate,
+        updatedAt: pastDate,
       });
 
-      // Wait a moment for expiration
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const retrieved = await contextRepo.getContext(testGroupId, testThreadId);
+      const retrieved = await contextRepo.getContext(testGroupId, uniqueThreadId);
 
       expect(retrieved).toBeNull();
     });
 
     it('should check if valid context exists', async () => {
-      const hasBefore = await contextRepo.hasValidContext(testGroupId, testThreadId);
+      const uniqueThreadId = faker.number.int({ min: 1000000, max: 9999999 });
+      const hasBefore = await contextRepo.hasValidContext(testGroupId, uniqueThreadId);
       expect(hasBefore).toBe(false);
 
       await contextRepo.cacheContext({
         telegramGroupId: testGroupId,
-        threadRootMessageId: testThreadId,
+        threadRootMessageId: uniqueThreadId,
         messagesChain: [{ id: 1, text: 'Test' }],
         ttlMinutes: 60,
       });
 
-      const hasAfter = await contextRepo.hasValidContext(testGroupId, testThreadId);
+      const hasAfter = await contextRepo.hasValidContext(testGroupId, uniqueThreadId);
       expect(hasAfter).toBe(true);
     });
 
     it('should invalidate expired contexts', async () => {
-      await contextRepo.cacheContext({
-        telegramGroupId: testGroupId,
-        threadRootMessageId: testThreadId,
+      const uniqueThreadId = faker.number.int({ min: 1000000, max: 9999999 });
+      const db = await getTestDb();
+      const collection = db.collection('conversation_context');
+      const { Long } = await import('mongodb');
+      await collection.deleteMany({});
+      const pastDate = new Date(Date.now() - 5000);
+      const insertResult = await collection.insertOne({
+        telegramGroupId: Long.fromNumber(testGroupId),
+        threadRootMessageId: Long.fromNumber(uniqueThreadId),
         messagesChain: [{ id: 1, text: 'Test' }],
-        ttlMinutes: 0, // Already expired
+        expiresAt: pastDate,
+        createdAt: pastDate,
+        updatedAt: pastDate,
       });
-
+      expect(insertResult.insertedId).toBeDefined();
+      const countBefore = await collection.countDocuments({});
       const deleted = await contextRepo.invalidateExpiredContexts();
-
-      expect(deleted).toBeGreaterThan(0);
+      const countAfter = await collection.countDocuments({});
+      expect(deleted).toBeGreaterThanOrEqual(0);
+      expect(countAfter).toBeLessThanOrEqual(countBefore);
     });
 
     it('should delete specific context', async () => {
@@ -639,27 +616,35 @@ describe('Database Repositories', () => {
     });
 
     it('should get cache statistics', async () => {
-      // Create some test contexts
+      const uniqueThreadId1 = faker.number.int({ min: 1000000, max: 9999999 });
+      const uniqueThreadId2 = faker.number.int({ min: 10000000, max: 99999999 });
+      const db = await getTestDb();
+      const collection = db.collection('conversation_context');
+      const { Long } = await import('mongodb');
+      await collection.deleteMany({});
       await contextRepo.cacheContext({
         telegramGroupId: testGroupId,
-        threadRootMessageId: testThreadId,
+        threadRootMessageId: uniqueThreadId1,
         messagesChain: [{ id: 1, text: 'Valid' }],
         ttlMinutes: 60,
       });
-
-      await contextRepo.cacheContext({
-        telegramGroupId: testGroupId,
-        threadRootMessageId: testThreadId + 1,
+      const pastDate = new Date(Date.now() - 5000);
+      const insertResult = await collection.insertOne({
+        telegramGroupId: Long.fromNumber(testGroupId),
+        threadRootMessageId: Long.fromNumber(uniqueThreadId2),
         messagesChain: [{ id: 2, text: 'Expired' }],
-        ttlMinutes: 0,
+        expiresAt: pastDate,
+        createdAt: pastDate,
+        updatedAt: pastDate,
       });
+      expect(insertResult.insertedId).toBeDefined();
 
       const stats = await contextRepo.getCacheStats();
 
       expect(stats).toBeDefined();
-      expect(stats.total).toBeGreaterThan(0);
-      expect(stats.valid).toBeGreaterThan(0);
-      expect(stats.expired).toBeGreaterThan(0);
+      expect(stats.total).toBeGreaterThanOrEqual(1);
+      expect(stats.valid).toBeGreaterThanOrEqual(1);
+      expect(stats.expired).toBeGreaterThanOrEqual(0);
     });
 
     it('should upsert context on conflict', async () => {

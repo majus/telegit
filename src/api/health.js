@@ -17,7 +17,7 @@ export const HealthStatus = {
 
 /**
  * Check database health
- * @param {Object} db - Database client instance
+ * @param {Object} db - Database instance from getDb()
  * @returns {Promise<Object>} Health check result
  */
 async function checkDatabase(db) {
@@ -32,8 +32,8 @@ async function checkDatabase(db) {
       };
     }
 
-    // Execute a simple query to verify database connectivity
-    await db.query('SELECT 1');
+    // Execute a ping command to verify MongoDB connectivity
+    await db.command({ ping: 1 });
 
     const responseTime = Date.now() - startTime;
 

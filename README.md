@@ -15,7 +15,7 @@ The bot performs actions optimistically without requiring constant user confirma
 - Docker
 - [Dokploy](https://docs.dokploy.com/docs/core)
 - [Telegraf](https://www.npmjs.com/package/telegraf) NPM library
-- PostgreSQL
+- MongoDB
 
 Some popular AI agent SDK must be integrated for flexibility and potential extendability of the AI workflow. The GitHub API must be integrated via MVP tool rather than via generic HTTP API client.
 
@@ -110,21 +110,59 @@ The bot securely stores the encrypted PAT (using AES-256-GCM encryption) and ass
 - Proper attribution of GitHub actions to individual users
 - Enhanced security through encryption of stored credentials
 
-## LLM Evaluation Framework
+## Testing
 
-**Essential for MVP**: A built-in evaluation system ensures bot behavior remains predictable and measurable as prompts and models evolve.
+TeleGit uses a comprehensive two-tier testing approach:
 
-**Implementation:**
-- Test suite with example inputs (messages) and expected outputs (intent classification, GitHub operations)
-- Automated evaluation using LLM-as-judge to score actual outputs against expectations
-- Integration with codebase to stay synchronized with changes
-- CI/CD integration to catch regressions before deployment
+### Unit Tests (Vitest)
+
+Fast, offline tests for application logic without API calls:
+
+```bash
+npm test              # Run all unit tests (< 10 seconds)
+npm run test:coverage # With coverage report
+```
+
+**What's tested:**
+- Input validation and error handling
+- Utility functions (hashtag extraction, title generation, context formatting)
+- Database operations (with MongoDB Memory Server)
+- Message queue (rate limiting, retries, graceful shutdown)
+- Encryption (AES-256-GCM)
+
+**No API keys required** - unit tests use mocks and run completely offline.
+
+### LLM Evaluations (Promptfoo)
+
+Comprehensive AI behavior validation with 27+ test scenarios:
+
+```bash
+# Set your OpenAI API key
+export OPENAI_API_KEY=sk-proj-your-key-here
+
+# Run evaluations
+npx promptfoo eval -c test/promptfoo/intent-classification.yaml
+```
+
+**What's tested:**
+- Intent classification accuracy (bug, task, idea detection)
+- Entity extraction (hashtags, mentions, issue numbers)
+- Context handling and conversation awareness
+- Edge cases (long messages, special characters)
+- Model comparison (GPT-4 vs GPT-3.5)
+
+**Requires real OpenAI API key** - tests actual LLM behavior and prompt effectiveness.
+
+### Documentation
+
+- **[TESTING.md](./TESTING.md)** - Unit testing guide and best practices
+- **[EVALUATION.md](./EVALUATION.md)** - LLM evaluation with Promptfoo
 
 **Benefits:**
-- Rapid experimentation with different LLM models and prompts
-- Confidence in changes through automated testing
-- Documented examples of expected behavior
-- Performance baselines for optimization
+- Rapid development with fast, offline unit tests
+- Confidence in LLM behavior through systematic evaluation
+- Prevention of regressions in prompts and models
+- Clear separation between application logic and AI behavior
 
 ## Monitoring & Observability
 

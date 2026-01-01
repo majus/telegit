@@ -3,7 +3,7 @@
  * Manages feedback messages for auto-deletion and reaction controls
  */
 
-import { query, getClient } from '../db.js';
+import { getDb, ObjectId, Long } from '../db.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -13,15 +13,15 @@ export class FeedbackRepository {
   /**
    * Create a feedback message record
    * @param {Object} data - Feedback data
-   * @param {string} data.operationId - Operation UUID
+   * @param {string} data.operationId - Operation ObjectId string
    * @param {number} data.chatId - Telegram chat ID
    * @param {number} data.feedbackMessageId - Telegram message ID of the feedback
    * @param {Date|string} data.scheduledDeletion - Timestamp when message should be deleted
    * @returns {Promise<Object>} Created feedback record
    */
   async createFeedback(data) {
+    const { operationId, chatId, feedbackMessageId, scheduledDeletion } = data;
     try {
-      const { operationId, chatId, feedbackMessageId, scheduledDeletion } = data;
 
       // Validate required fields
       if (!operationId || !chatId || !feedbackMessageId || !scheduledDeletion) {
@@ -33,32 +33,33 @@ export class FeedbackRepository {
         throw new Error('chatId and feedbackMessageId must be numbers');
       }
 
-      const result = await query(
-        `INSERT INTO operation_feedback (
-          operation_id,
-          telegram_chat_id,
-          feedback_message_id,
-          scheduled_deletion
-        )
-        VALUES ($1, $2, $3, $4)
-        RETURNING *`,
-        [operationId, chatId, feedbackMessageId, scheduledDeletion]
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      const feedback = result.rows[0];
+      const now = new Date();
+      const doc = {
+        operationId: new ObjectId(operationId),
+        telegramChatId: Long.fromNumber(chatId),
+        feedbackMessageId: Long.fromNumber(feedbackMessageId),
+        scheduledDeletion: new Date(scheduledDeletion),
+        dismissed: false,
+        createdAt: now,
+      };
+
+      const result = await collection.insertOne(doc);
 
       return {
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
-        dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        id: result.insertedId.toString(),
+        operationId,
+        telegramChatId: chatId,
+        feedbackMessageId,
+        scheduledDeletion: doc.scheduledDeletion,
+        dismissed: false,
+        createdAt: now,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId, chatId, feedbackMessageId }, 'Error creating feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId, chatId, feedbackMessageId }, 'Error creating feedback');
+      throw err;
     }
   }
 
@@ -74,62 +75,58 @@ export class FeedbackRepository {
         throw new Error('messageId must be a number');
       }
 
-      const result = await query(
-        'SELECT * FROM operation_feedback WHERE feedback_message_id = $1',
-        [messageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      if (result.rows.length === 0) {
+      const feedback = await collection.findOne({ feedbackMessageId: Long.fromNumber(messageId) });
+
+      if (!feedback) {
         return null;
       }
 
-      const feedback = result.rows[0];
-
       return {
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error getting feedback by message ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error getting feedback by message ID');
+      throw err;
     }
   }
 
   /**
    * Get feedback by operation ID
-   * @param {string} operationId - Operation UUID
+   * @param {string} operationId - Operation ObjectId string
    * @returns {Promise<Object|null>} Feedback record or null if not found
    */
   async getFeedbackByOperationId(operationId) {
     try {
-      const result = await query(
-        'SELECT * FROM operation_feedback WHERE operation_id = $1',
-        [operationId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      if (result.rows.length === 0) {
+      const feedback = await collection.findOne({ operationId: new ObjectId(operationId) });
+
+      if (!feedback) {
         return null;
       }
 
-      const feedback = result.rows[0];
-
       return {
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, operationId }, 'Error getting feedback by operation ID');
-      throw error;
+    } catch (err) {
+      logger.error({ err, operationId }, 'Error getting feedback by operation ID');
+      throw err;
     }
   }
 
@@ -140,32 +137,33 @@ export class FeedbackRepository {
    */
   async markDismissed(messageId) {
     try {
-      const result = await query(
-        `UPDATE operation_feedback
-         SET dismissed = TRUE
-         WHERE feedback_message_id = $1
-         RETURNING *`,
-        [messageId]
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
+
+      const result = await collection.findOneAndUpdate(
+        { feedbackMessageId: Long.fromNumber(messageId) },
+        { $set: { dismissed: true } },
+        { returnDocument: 'after' }
       );
 
-      if (result.rows.length === 0) {
+      if (!result) {
         throw new Error(`Feedback not found for message ID: ${messageId}`);
       }
 
-      const feedback = result.rows[0];
+      const feedback = result;
 
       return {
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error marking feedback as dismissed');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error marking feedback as dismissed');
+      throw err;
     }
   }
 
@@ -176,25 +174,29 @@ export class FeedbackRepository {
    */
   async getScheduledDeletions() {
     try {
-      const result = await query(
-        `SELECT * FROM operation_feedback
-         WHERE dismissed = FALSE
-         AND scheduled_deletion <= CURRENT_TIMESTAMP
-         ORDER BY scheduled_deletion ASC`
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      return result.rows.map(feedback => ({
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+      const feedbacks = await collection
+        .find({
+          dismissed: false,
+          scheduledDeletion: { $lte: new Date() },
+        })
+        .sort({ scheduledDeletion: 1 })
+        .toArray();
+
+      return feedbacks.map(feedback => ({
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting scheduled deletions');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting scheduled deletions');
+      throw err;
     }
   }
 
@@ -204,24 +206,26 @@ export class FeedbackRepository {
    */
   async getPendingFeedback() {
     try {
-      const result = await query(
-        `SELECT * FROM operation_feedback
-         WHERE dismissed = FALSE
-         ORDER BY scheduled_deletion ASC`
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      return result.rows.map(feedback => ({
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+      const feedbacks = await collection
+        .find({ dismissed: false })
+        .sort({ scheduledDeletion: 1 })
+        .toArray();
+
+      return feedbacks.map(feedback => ({
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       }));
-    } catch (error) {
-      logger.error({ err: error }, 'Error getting pending feedback');
-      throw error;
+    } catch (err) {
+      logger.error({ err }, 'Error getting pending feedback');
+      throw err;
     }
   }
 
@@ -232,15 +236,15 @@ export class FeedbackRepository {
    */
   async deleteFeedback(messageId) {
     try {
-      const result = await query(
-        'DELETE FROM operation_feedback WHERE feedback_message_id = $1',
-        [messageId]
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      return result.rowCount > 0;
-    } catch (error) {
-      logger.error({ err: error, messageId }, 'Error deleting feedback');
-      throw error;
+      const result = await collection.deleteOne({ feedbackMessageId: Long.fromNumber(messageId) });
+
+      return result.deletedCount > 0;
+    } catch (err) {
+      logger.error({ err, messageId }, 'Error deleting feedback');
+      throw err;
     }
   }
 
@@ -252,32 +256,33 @@ export class FeedbackRepository {
    */
   async updateScheduledDeletion(messageId, newScheduledDeletion) {
     try {
-      const result = await query(
-        `UPDATE operation_feedback
-         SET scheduled_deletion = $2
-         WHERE feedback_message_id = $1
-         RETURNING *`,
-        [messageId, newScheduledDeletion]
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
+
+      const result = await collection.findOneAndUpdate(
+        { feedbackMessageId: Long.fromNumber(messageId) },
+        { $set: { scheduledDeletion: new Date(newScheduledDeletion) } },
+        { returnDocument: 'after' }
       );
 
-      if (result.rows.length === 0) {
+      if (!result) {
         throw new Error(`Feedback not found for message ID: ${messageId}`);
       }
 
-      const feedback = result.rows[0];
+      const feedback = result;
 
       return {
-        id: feedback.id,
-        operationId: feedback.operation_id,
-        chatId: feedback.telegram_chat_id,
-        feedbackMessageId: feedback.feedback_message_id,
-        scheduledDeletion: feedback.scheduled_deletion,
+        id: feedback._id.toString(),
+        operationId: feedback.operationId.toString(),
+        chatId: Number(feedback.telegramChatId),
+        feedbackMessageId: Number(feedback.feedbackMessageId),
+        scheduledDeletion: feedback.scheduledDeletion,
         dismissed: feedback.dismissed,
-        createdAt: feedback.created_at,
+        createdAt: feedback.createdAt,
       };
-    } catch (error) {
-      logger.error({ err: error, messageId, newScheduledDeletion }, 'Error updating scheduled deletion');
-      throw error;
+    } catch (err) {
+      logger.error({ err, messageId, newScheduledDeletion }, 'Error updating scheduled deletion');
+      throw err;
     }
   }
 
@@ -294,17 +299,20 @@ export class FeedbackRepository {
         throw new Error('daysOld must be a number between 1 and 3650 (10 years)');
       }
 
-      // Use parameterized query to prevent SQL injection
-      const result = await query(
-        `DELETE FROM operation_feedback
-         WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '1 day' * $1`,
-        [daysOld]
-      );
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
 
-      return result.rowCount;
-    } catch (error) {
-      logger.error({ err: error, daysOld }, 'Error cleaning up old feedback');
-      throw error;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+      const result = await collection.deleteMany({
+        createdAt: { $lt: cutoffDate },
+      });
+
+      return result.deletedCount;
+    } catch (err) {
+      logger.error({ err, daysOld }, 'Error cleaning up old feedback');
+      throw err;
     }
   }
 }

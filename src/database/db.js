@@ -1,22 +1,51 @@
 /**
- * PostgreSQL Database Client
+ * MongoDB Database Client
  * Provides connection pooling and database access for the application
  */
 
-import pg from 'pg';
+import { MongoClient, ObjectId, Long } from 'mongodb';
 import { getConfig } from '../../config/env.js';
 import logger from '../utils/logger.js';
-
-const { Pool } = pg;
 
 // Get database configuration
 const config = getConfig();
 
 /**
- * PostgreSQL connection pool
- * Configured with max 20 connections as per PRD requirements
+ * MongoDB client instance
+ * Configured with connection pooling as per PRD requirements
  */
-export const pool = new Pool(config.database);
+let client = null;
+let db = null;
+
+/**
+ * Initialize and get MongoDB client
+ * @returns {Promise<MongoClient>} MongoDB client instance
+ */
+export async function getClient() {
+  if (!client) {
+    client = new MongoClient(config.database.uri, {
+      maxPoolSize: config.database.maxPoolSize,
+      minPoolSize: config.database.minPoolSize,
+      connectTimeoutMS: config.database.connectTimeoutMS,
+      socketTimeoutMS: config.database.socketTimeoutMS,
+    });
+    await client.connect();
+    logger.info('MongoDB client connected');
+  }
+  return client;
+}
+
+/**
+ * Get database instance
+ * @returns {Promise<import('mongodb').Db>} Database instance
+ */
+export async function getDb() {
+  if (!db) {
+    const mongoClient = await getClient();
+    db = mongoClient.db(config.database.database);
+  }
+  return db;
+}
 
 /**
  * Test database connection
@@ -24,9 +53,8 @@ export const pool = new Pool(config.database);
  */
 export async function testConnection() {
   try {
-    const client = await pool.connect();
-    await client.query('SELECT NOW()');
-    client.release();
+    const database = await getDb();
+    await database.command({ ping: 1 });
     return true;
   } catch (error) {
     logger.error({ err: error }, 'Database connection test failed');
@@ -47,64 +75,76 @@ export async function closePool() {
     clearInterval(statsIntervalId);
     statsIntervalId = null;
   }
-  await pool.end();
+
+  if (client) {
+    await client.close();
+    client = null;
+    db = null;
+    logger.info('MongoDB client closed');
+  }
 }
 
 /**
- * Execute a query with parameters
- * @param {string} text - SQL query text
- * @param {Array} params - Query parameters
- * @returns {Promise<pg.QueryResult>} Query result
+ * Execute a database operation with timing and error logging
+ * @param {string} operationName - Name of the operation for logging
+ * @param {Function} operation - Async operation to execute
+ * @returns {Promise<any>} Operation result
  */
-export async function query(text, params) {
+export async function query(operationName, operation) {
   const start = Date.now();
   try {
-    const result = await pool.query(text, params);
+    const result = await operation();
     const duration = Date.now() - start;
 
     // Log slow queries (>100ms)
     if (duration > 100) {
-      logger.warn({ duration, query: text.substring(0, 100) }, 'Slow query detected');
+      logger.warn({ duration, operation: operationName }, 'Slow query detected');
     }
 
     return result;
   } catch (error) {
-    logger.error({ err: error, query: text }, 'Query error');
+    logger.error({ err: error, operation: operationName }, 'Query error');
     throw error;
   }
 }
 
 /**
- * Get a client from the pool for transactions
- * Remember to release the client after use
- * @returns {Promise<pg.PoolClient>} Database client
+ * Export ObjectId and Long for use in repositories
  */
-export async function getClient() {
-  return await pool.connect();
+export { ObjectId, Long };
+
+// Handle unexpected errors
+if (client) {
+  client.on('error', (err) => {
+    logger.error({ err }, 'Unexpected MongoDB client error. Client will attempt to recover. If errors persist, check database connection.');
+
+    // Optionally emit an event for monitoring systems to catch
+    if (process.listenerCount('databaseError') > 0) {
+      process.emit('databaseError', err);
+    }
+  });
 }
-
-// Handle unexpected errors - log and attempt recovery instead of crashing
-pool.on('error', (err, client) => {
-  logger.error({ err }, 'Unexpected error on idle client. Pool will attempt to recover. If errors persist, check database connection.');
-
-  // Optionally emit an event for monitoring systems to catch
-  if (process.listenerCount('databaseError') > 0) {
-    process.emit('databaseError', err);
-  }
-});
 
 // Log pool statistics periodically in development
 if (config.app.nodeEnv === 'development') {
-  statsIntervalId = setInterval(() => {
-    logger.debug({
-      total: pool.totalCount,
-      idle: pool.idleCount,
-      waiting: pool.waitingCount,
-    }, 'Pool stats');
+  statsIntervalId = setInterval(async () => {
+    if (client) {
+      try {
+        const database = await getDb();
+        const serverStatus = await database.admin().serverStatus();
+        logger.debug({
+          connections: serverStatus.connections,
+        }, 'MongoDB connection stats');
+      } catch (error) {
+        // Ignore errors in stats logging
+      }
+    }
   }, 60000); // Every minute
 
   // Prevent interval from keeping process alive
-  statsIntervalId.unref();
+  if (statsIntervalId && statsIntervalId.unref) {
+    statsIntervalId.unref();
+  }
 }
 
-export default pool;
+export default { getClient, getDb, testConnection, closePool, query, ObjectId, Long };
