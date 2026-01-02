@@ -32,6 +32,7 @@ Some popular AI agent SDK must be integrated for flexibility and potential exten
 - Reaction-based controls: Users can undo actions with 👎 or dismiss feedback with 👍.
 - Image attachment support: Direct Telegram file links are embedded in issues, which GitHub backend converts to static CDN URLs.
 - LLM evaluation framework: Built-in testing system ensures bot behavior remains predictable and allows experimentation with models and prompts.
+- Group management commands: `/start`, `/status`, and `/unlink` for bot configuration and monitoring.
 
 ## How It Works
 
@@ -72,6 +73,11 @@ You may include hashtags to categorize your intent more explicitly, e.g., `#todo
 - Search for existing GitHub issues
 - Update existing issues content or statuses
 - Include image attachments from messages - direct Telegram file links are embedded, which GitHub backend converts to static GitHub CDN URLs (safe for public sharing, unlike original Telegram URLs containing the bot's private token)
+
+**Group management commands:**
+- `/start` - Display bot introduction, capabilities, and GitHub link status. Automatically triggers setup for non-linked groups.
+- `/status` - View usage statistics and connection health (manager only). Shows operations summary, cache statistics, and system health.
+- `/unlink` - Disconnect group from GitHub repository (manager only). Requires confirmation via inline keyboard.
 
 ## Access Control
 

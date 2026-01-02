@@ -336,6 +336,28 @@ export class ConversationContextRepository {
       throw err;
     }
   }
+
+  /**
+   * Get count of cached contexts for a group
+   * @param {number} groupId - Telegram group ID
+   * @returns {Promise<number>} Count of context records
+   */
+  async getContextCountByGroup(groupId) {
+    try {
+      const db = await getDb();
+      const collection = db.collection('conversation_context');
+
+      const count = await collection.countDocuments({
+        telegramGroupId: Long.fromNumber(groupId),
+        expiresAt: { $gt: new Date() },
+      });
+
+      return count;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error getting context count by group');
+      throw err;
+    }
+  }
 }
 
 // Export singleton instance
