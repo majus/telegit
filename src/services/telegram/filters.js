@@ -281,7 +281,8 @@ export function createFilterMiddleware(options = {}) {
   return async (ctx, next) => {
     const message = ctx.message || ctx.editedMessage;
     if (!message) {
-      return; // No message to process
+      // Allow non-message updates (callback queries, reactions, etc.) to pass through
+      return next();
     }
 
     const chatType = message.chat?.type;
