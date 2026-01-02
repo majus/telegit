@@ -126,7 +126,7 @@ async function startApplication() {
       logger.info('Starting bot in polling mode...');
       await bot.launch({
         dropPendingUpdates: true,
-        allowedUpdates: ['message', 'message_reaction', 'edited_message'],
+        allowedUpdates: ['message', 'message_reaction', 'edited_message', 'callback_query'],
       });
       logger.info('✓ Bot started in polling mode');
     }
