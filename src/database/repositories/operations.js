@@ -320,6 +320,37 @@ export class OperationsRepository {
       throw err;
     }
   }
+
+  /**
+   * Get all operations for a group
+   * @param {number} groupId - Telegram group ID
+   * @returns {Promise<Array>} List of operations
+   */
+  async getOperationsByGroup(groupId) {
+    try {
+      const db = await getDb();
+      const collection = db.collection('operations');
+
+      const operations = await collection
+        .find({ telegramGroupId: Long.fromNumber(groupId) })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return operations.map(operation => ({
+        id: operation._id.toString(),
+        telegramGroupId: Number(operation.telegramGroupId),
+        telegramMessageId: Number(operation.telegramMessageId),
+        operationType: operation.operationType,
+        githubIssueUrl: operation.githubIssueUrl,
+        operationData: operation.operationData,
+        status: operation.status,
+        createdAt: operation.createdAt,
+      }));
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error getting operations by group');
+      throw err;
+    }
+  }
 }
 
 // Export singleton instance

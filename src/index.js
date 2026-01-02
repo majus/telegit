@@ -13,6 +13,12 @@ import { handleReaction } from './services/telegram/reaction-handler.js';
 import { createFilterMiddleware } from './services/telegram/filters.js';
 import { createPrivateMessageHandler } from './services/telegram/private-message-handler.js';
 import { getSetupSession, cleanupExpiredSessions } from './services/telegram/auth-setup.js';
+import {
+  createStartCommandHandler,
+  createUnlinkCommandHandler,
+  createUnlinkCallbackHandler,
+  createStatusCommandHandler,
+} from './services/telegram/commands.js';
 import { processMessage } from './ai/processor.js';
 import { messageQueue, Priority } from './queue/message-queue.js';
 import { query } from './database/db.js';
@@ -162,6 +168,12 @@ function registerBotHandlers(botInstance, filterOptions) {
 
   // Middleware: Filter messages using factory
   botInstance.use(createFilterMiddleware(filterOptions));
+
+  // Register command handlers
+  botInstance.command('start', createStartCommandHandler({ filterOptions }));
+  botInstance.command('status', createStatusCommandHandler());
+  botInstance.command('unlink', createUnlinkCommandHandler());
+  botInstance.on('callback_query', createUnlinkCallbackHandler());
 
   // Create private message handler
   const privateMessageHandler = createPrivateMessageHandler();

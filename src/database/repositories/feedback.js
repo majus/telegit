@@ -315,6 +315,28 @@ export class FeedbackRepository {
       throw err;
     }
   }
+
+  /**
+   * Get count of pending feedback for a group
+   * @param {number} groupId - Telegram group ID
+   * @returns {Promise<number>} Count of pending feedback messages
+   */
+  async getPendingFeedbackCount(groupId) {
+    try {
+      const db = await getDb();
+      const collection = db.collection('operation_feedback');
+
+      const count = await collection.countDocuments({
+        telegramChatId: Long.fromNumber(groupId),
+        dismissed: false,
+      });
+
+      return count;
+    } catch (err) {
+      logger.error({ err, groupId }, 'Error getting pending feedback count');
+      throw err;
+    }
+  }
 }
 
 // Export singleton instance
